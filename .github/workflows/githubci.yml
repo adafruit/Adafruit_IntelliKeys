@@ -21,20 +21,20 @@ jobs:
     - name: Run pre-commit
       uses: pre-commit/action@v3.0.0
 
-    - name: Checkout adafruit/ci-arduino
-      uses: actions/checkout@v3
-      with:
-         repository: adafruit/ci-arduino
-         path: ci
+#    - name: Checkout adafruit/ci-arduino
+#      uses: actions/checkout@v3
+#      with:
+#         repository: adafruit/ci-arduino
+#         path: ci
 
-    - name: pre-install
-      run: bash ci/actions_install.sh
+#    - name: pre-install
+#      run: bash ci/actions_install.sh
 
-    - name: doxygen
-      env:
-        GH_REPO_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
-        PRETTYNAME : "Adafruit IntelliKeys"
-      run: bash ci/doxy_gen_and_deploy.sh
+#    - name: doxygen
+#      env:
+#        GH_REPO_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
+#        PRETTYNAME : "Adafruit IntelliKeys"
+#      run: bash ci/doxy_gen_and_deploy.sh
 
   build:
     runs-on: ubuntu-latest
