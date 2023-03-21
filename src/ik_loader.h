@@ -1,4 +1,4 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2023 Ha Thach (tinyusb.org) for Adafruit Industries
@@ -22,10 +22,8 @@
  * THE SOFTWARE.
  */
 
-#include "intellikeysdefs.h"
-
 // From https://github.com/ATMakersOrg/OpenIKeys/blob/master/original/IntelliKeys/WindowsOld/Win/Loading%20Driver/loader.c
-const INTEL_HEX_RECORD ik_loader[] = {
+static const INTEL_HEX_RECORD ik_loader[] = {
     16,
     0x146c,
     0,

@@ -1,4 +1,4 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2023 Ha Thach (tinyusb.org) for Adafruit Industries
@@ -25,23 +25,36 @@
 #ifndef ADAFRUIT_INTELLIKEYS_H_
 #define ADAFRUIT_INTELLIKEYS_H_
 
-#include "intellikeysdefs.h"
 #include "Adafruit_TinyUSB.h"
+#include "intellikeysdefs.h"
 
 class Adafruit_IntelliKeys {
-  public:
-    Adafruit_IntelliKeys(void);
+public:
+  Adafruit_IntelliKeys(void);
 
-  private:
-    bool start(void);
-    bool PostCommand(uint8_t *command);
+  void begin(void);
+  bool mount(uint8_t daddr);
+  void umount(uint8_t daddr);
 
-    bool ezusb_StartDevice(void);
-    bool ezusb_DownloadIntelHex(INTEL_HEX_RECORD const* record);
-    bool ezusb_8051Reset(uint8_t resetBit);
+  // Internal
+  void process_download_firmware(tuh_xfer_t *xfer);
 
-    // internal helper
-    bool _downloadHex(INTEL_HEX_RECORD const* record, bool internal_ram);
+private:
+  // uint8_t _daddr;
+  uint8_t _state;
+
+  bool start(void);
+  bool PostCommand(uint8_t *command);
+
+  bool ezusb_StartDevice(uint8_t daddr);
+  bool ezusb_DownloadIntelHex(uint8_t daddr, INTEL_HEX_RECORD const *record);
+  bool ezusb_8051Reset(uint8_t daddr, uint8_t resetBit);
+
+  // internal helper
+  bool ezusb_load_xfer(uint8_t daddr, uint8_t brequest, uint16_t addr,
+                       const void *buffer, uint16_t len);
+  bool ezusb_downloadHex(uint8_t daddr, INTEL_HEX_RECORD const *record,
+                         bool internal_ram);
 };
 
 #endif
