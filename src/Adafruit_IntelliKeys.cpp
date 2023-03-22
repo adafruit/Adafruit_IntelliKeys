@@ -116,7 +116,7 @@ bool Adafruit_IntelliKeys::ezusb_load_xfer(uint8_t daddr, uint8_t bRequest,
 }
 
 bool Adafruit_IntelliKeys::ezusb_StartDevice(uint8_t daddr) {
-  IK_PRINTF("enter Ezusb_StartDevice\n");
+  IK_PRINTF("Downloading firmware\n");
 
   xfer_result_t result = XFER_RESULT_INVALID;
   tuh_interface_set(daddr, 0, 0, NULL, (uintptr_t)&result);
@@ -137,7 +137,7 @@ bool Adafruit_IntelliKeys::ezusb_StartDevice(uint8_t daddr) {
   ezusb_8051Reset(daddr, 1);
   ezusb_8051Reset(daddr, 0);
 
-  IK_PRINTF("exit Ezusb_StartDevice\n");
+  IK_PRINTF("Downloaded firmware\n");
 
   return true;
 }
