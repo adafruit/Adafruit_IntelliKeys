@@ -40,21 +40,20 @@ public:
   void process_download_firmware(tuh_xfer_t *xfer);
 
 private:
-  // uint8_t _daddr;
+  uint8_t _daddr;
   uint8_t _state;
 
   bool start(void);
-  bool PostCommand(uint8_t *command);
+  bool postCommand(uint8_t *command);
 
-  bool ezusb_StartDevice(uint8_t daddr);
-  bool ezusb_DownloadIntelHex(uint8_t daddr, INTEL_HEX_RECORD const *record);
-  bool ezusb_8051Reset(uint8_t daddr, uint8_t resetBit);
+  bool ezusb_StartDevice(void);
+  bool ezusb_DownloadIntelHex(INTEL_HEX_RECORD const *record);
+  bool ezusb_8051Reset(uint8_t resetBit);
 
   // internal helper
-  bool ezusb_load_xfer(uint8_t daddr, uint8_t brequest, uint16_t addr,
-                       const void *buffer, uint16_t len);
-  bool ezusb_downloadHex(uint8_t daddr, INTEL_HEX_RECORD const *record,
-                         bool internal_ram);
+  bool ezusb_load_xfer(uint8_t brequest, uint16_t addr, const void *buffer,
+                       uint16_t len);
+  bool ezusb_downloadHex(INTEL_HEX_RECORD const *record, bool internal_ram);
 };
 
 #endif

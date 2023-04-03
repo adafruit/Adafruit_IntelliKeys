@@ -48,7 +48,7 @@
 //--------------------------------------------------------------------+
 
 Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
-  // _daddr = 0;
+  _daddr = 0;
   _state = 0;
 }
 
@@ -60,16 +60,19 @@ bool Adafruit_IntelliKeys::mount(uint8_t daddr) {
 
   Serial.printf("VID = %04x, PID = %04x\r\n", vid, pid);
 
-  if (vid != IK_VID)
+  if (vid != IK_VID) {
     return false;
+  }
 
-  // _daddr = daddr;
+  _daddr = daddr;
 
   if (pid == IK_PID_FWLOAD) {
     IK_PRINTF("IK mounted without firmware\n");
-    ezusb_StartDevice(daddr);
+    ezusb_StartDevice();
   } else if (pid == IK_PID_RUNNING) {
     IK_PRINTF("IK mounted running firmware\n");
+
+    start();
   } else {
     return false;
   }
@@ -77,20 +80,35 @@ bool Adafruit_IntelliKeys::mount(uint8_t daddr) {
   return true;
 }
 
-void Adafruit_IntelliKeys::umount(uint8_t daddr) {}
+void Adafruit_IntelliKeys::umount(uint8_t daddr) {
+  if (daddr == _daddr) {
+    _daddr = 0;
+  }
+}
 
 //--------------------------------------------------------------------+
 // Private
 //--------------------------------------------------------------------+
 
-bool Adafruit_IntelliKeys::start(void) { return false; }
+bool Adafruit_IntelliKeys::start(void) {
+  uint8_t command[IK_REPORT_LEN] = {0};
 
-bool Adafruit_IntelliKeys::PostCommand(uint8_t *command) { return false; }
+  command[0] = IK_CMD_INIT;
+  command[1] = 0; //  interrupt event mode
+  postCommand(command);
+
+  //  command[0] = IK_CMD_SCAN;
+  //  command[1] = 1; //  enable
+  //  postCommand(command);
+
+  return false;
+}
+
+bool Adafruit_IntelliKeys::postCommand(uint8_t *command) { return false; }
 
 // Make an firmware load control request
-bool Adafruit_IntelliKeys::ezusb_load_xfer(uint8_t daddr, uint8_t bRequest,
-                                           uint16_t addr, const void *buffer,
-                                           uint16_t len) {
+bool Adafruit_IntelliKeys::ezusb_load_xfer(uint8_t bRequest, uint16_t addr,
+                                           const void *buffer, uint16_t len) {
   tusb_control_request_t const request = {
       .bmRequestType_bit = {.recipient = TUSB_REQ_RCPT_DEVICE,
                             .type = TUSB_REQ_TYPE_VENDOR,
@@ -101,7 +119,7 @@ bool Adafruit_IntelliKeys::ezusb_load_xfer(uint8_t daddr, uint8_t bRequest,
       .wLength = tu_htole16(len),
   };
 
-  tuh_xfer_t xfer = {.daddr = daddr,
+  tuh_xfer_t xfer = {.daddr = _daddr,
                      .ep_addr = 0,
                      .setup = &request,
                      .buffer = (uint8_t *)buffer,
@@ -115,27 +133,27 @@ bool Adafruit_IntelliKeys::ezusb_load_xfer(uint8_t daddr, uint8_t bRequest,
   return xfer.result == XFER_RESULT_SUCCESS;
 }
 
-bool Adafruit_IntelliKeys::ezusb_StartDevice(uint8_t daddr) {
+bool Adafruit_IntelliKeys::ezusb_StartDevice(void) {
   IK_PRINTF("Downloading firmware\n");
 
   xfer_result_t result = XFER_RESULT_INVALID;
-  tuh_interface_set(daddr, 0, 0, NULL, (uintptr_t)&result);
+  tuh_interface_set(_daddr, 0, 0, NULL, (uintptr_t)&result);
 
   if (result != XFER_RESULT_SUCCESS) {
     IK_PRINTF("Failed to Set Interface\n");
     return false;
   }
 
-  // First download loader firmware.  The loader firmware implements a vendor
+  // First download loader firmware. The loader firmware implements a vendor
   // specific command that will allow us to anchor load to external ram
-  ezusb_8051Reset(daddr, 1);
-  ezusb_DownloadIntelHex(daddr, ik_loader);
-  ezusb_8051Reset(daddr, 0);
+  ezusb_8051Reset(1);
+  ezusb_DownloadIntelHex(ik_loader);
+  ezusb_8051Reset(0);
 
   // Now download the device firmware
-  ezusb_DownloadIntelHex(daddr, ik_firmware);
-  ezusb_8051Reset(daddr, 1);
-  ezusb_8051Reset(daddr, 0);
+  ezusb_DownloadIntelHex(ik_firmware);
+  ezusb_8051Reset(1);
+  ezusb_8051Reset(0);
 
   IK_PRINTF("Downloaded firmware\n");
 
@@ -143,7 +161,7 @@ bool Adafruit_IntelliKeys::ezusb_StartDevice(uint8_t daddr) {
 }
 
 bool Adafruit_IntelliKeys::ezusb_DownloadIntelHex(
-    uint8_t daddr, INTEL_HEX_RECORD const *hex_record) {
+    INTEL_HEX_RECORD const *hex_record) {
   // The download must be performed in two passes.  The first pass loads all of
   // the external addresses, and the 2nd pass loads to all of the internal
   // addresses. why?  because downloading to the internal addresses will
@@ -151,19 +169,18 @@ bool Adafruit_IntelliKeys::ezusb_DownloadIntelHex(
   // receive external ram downloads.
 
   // First download all the records that go in external ram
-  ezusb_downloadHex(daddr, hex_record, false);
+  ezusb_downloadHex(hex_record, false);
 
   // Now download all of the records that are in internal RAM.  Before starting
   // the download, stop the 8051.
-  ezusb_8051Reset(daddr, 1);
+  ezusb_8051Reset(1);
 
-  ezusb_downloadHex(daddr, hex_record, true);
+  ezusb_downloadHex(hex_record, true);
 
   return false;
 }
 
-bool Adafruit_IntelliKeys::ezusb_downloadHex(uint8_t daddr,
-                                             INTEL_HEX_RECORD const *ptr,
+bool Adafruit_IntelliKeys::ezusb_downloadHex(INTEL_HEX_RECORD const *ptr,
                                              bool internal_ram) {
   // First download all the records that go in external ram
   while (ptr->Type == 0) {
@@ -172,8 +189,7 @@ bool Adafruit_IntelliKeys::ezusb_downloadHex(uint8_t daddr,
 
       uint8_t const bRequest =
           internal_ram ? ANCHOR_LOAD_INTERNAL : ANCHOR_LOAD_EXTERNAL;
-      if (!ezusb_load_xfer(daddr, bRequest, ptr->Address, ptr->Data,
-                           ptr->Length)) {
+      if (!ezusb_load_xfer(bRequest, ptr->Address, ptr->Data, ptr->Length)) {
         IK_PRINTF("Failed to load hex file");
         return false;
       }
@@ -185,6 +201,6 @@ bool Adafruit_IntelliKeys::ezusb_downloadHex(uint8_t daddr,
   return true;
 }
 
-bool Adafruit_IntelliKeys::ezusb_8051Reset(uint8_t daddr, uint8_t resetBit) {
-  return ezusb_load_xfer(daddr, ANCHOR_LOAD_INTERNAL, CPUCS_REG, &resetBit, 1);
+bool Adafruit_IntelliKeys::ezusb_8051Reset(uint8_t resetBit) {
+  return ezusb_load_xfer(ANCHOR_LOAD_INTERNAL, CPUCS_REG, &resetBit, 1);
 }
