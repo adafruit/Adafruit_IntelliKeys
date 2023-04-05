@@ -118,8 +118,10 @@ const char *const ik_event_str[] = {
 Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   _daddr = 0;
   _opened = false;
+  _expected_resp = 0;
 
   m_lastLEDTime = 0;
+  m_delayUntil = 0;
   m_nextCorrect = 0;
 
   m_lastOverlay = -1;
@@ -147,6 +149,9 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   for (unsigned int i4 = 0; i4 < sizeof(m_MouseReport); i4++) {
     m_MouseReport[i4] = 0;
   }
+
+  tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
+  tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
 }
 
 void Adafruit_IntelliKeys::begin(void) {}
@@ -209,8 +214,7 @@ void Adafruit_IntelliKeys::Periodic(void) {
   }
 
   //  send for not-yet valid eeprom bytes
-  static bool bFirst = true;
-  if (!m_bEepromValid && bFirst) {
+  if (!m_bEepromValid) {
     for (uint8_t i = 0; i < sizeof(eeprom_t); i++) {
       if (!m_eepromDataValid[i] && m_eepromRequestTime[i] + 500 < now) {
         uint8_t report[8] = {
@@ -219,9 +223,9 @@ void Adafruit_IntelliKeys::Periodic(void) {
         m_eepromRequestTime[i] = now;
       }
     }
-
-    bFirst = false;
   }
+
+  ProcessCommands();
 }
 
 //--------------------------------------------------------------------+
@@ -239,7 +243,7 @@ bool Adafruit_IntelliKeys::Start(void) {
   command[1] = 1; //  enable
   PostCommand(command);
 
-  // PostDelay ( 250);
+  PostDelay(250);
 
   command[0] = IK_CMD_ALL_SENSORS;
   command[1] = 0; //  unused
@@ -292,38 +296,91 @@ void Adafruit_IntelliKeys::DoCorrect(void) {
   PostCommand(report);
 }
 
-bool Adafruit_IntelliKeys::PostCommand(uint8_t *command) {
-  uint8_t cmd_id = command[0];
+// All commands processed in this function is sent to device
+void Adafruit_IntelliKeys::ProcessCommands() {
+  uint8_t const idx = 0;
+
+  //  come back later if IK_ICMD_DELAY has set a future time
+  if (millis() < m_delayUntil) {
+    return;
+  }
+
+  if (!tuh_hid_send_ready(_daddr, idx)) {
+    return;
+  }
+
+  uint8_t command[IK_REPORT_LEN] = {0};
+
+  if (!tu_fifo_read(&_cmd_ff, command)) {
+    return;
+  }
+
+  uint8_t const cmd_id = command[0];
 
   if (cmd_id < COMMAND_BASE) {
     if (cmd_id > IK_CMD_REFLECT_MOUSE_MOVE) {
-      IK_PRINTF("PostCommand: %d (missing str)\r\n", cmd_id);
+      IK_PRINTF("ProcessCommand: invalid cmd %d\r\n", cmd_id);
     } else {
-      IK_PRINTF("PostCommand: %s\r\n", ik_cmd_str[cmd_id]);
+      IK_PRINTF("ProcessCommand: %s\r\n", ik_cmd_str[cmd_id]);
     }
 
-    uint8_t idx = 0;
-
-    // blocking for now
+    // blocking until report is sent
     while (!tuh_hid_send_report(_daddr, idx, 0, command, IK_REPORT_LEN)) {
       tuh_task();
     }
+    _expected_resp++;
+
+    tuh_hid_receive_report(_daddr, idx);
+  }
+}
+
+bool Adafruit_IntelliKeys::PostCommand(uint8_t *command) {
+  uint8_t const cmd_id = command[0];
+
+  if (cmd_id < COMMAND_BASE) {
+    if (cmd_id > IK_CMD_REFLECT_MOUSE_MOVE) {
+      IK_PRINTF("PostCommand: invalid cmd %d\r\n", cmd_id);
+      return false;
+    }
+    IK_PRINTF("PostCommand: %s\r\n", ik_cmd_str[cmd_id]);
+
+    // queue command sent to device
+    if (!tu_fifo_write(&_cmd_ff, command)) {
+      IK_PRINTF("PostCommand: Failed to queue command, probably full. Please "
+                "increase IK_CMD_FIFO_SIZE\n");
+    }
   } else {
     if (cmd_id > IK_CMD_CP_REPORT_REALTIME) {
-      IK_PRINTF("PostCommand (local): %d (missing str)\r\n",
-                cmd_id - COMMAND_BASE);
+      IK_PRINTF("PostCommand (local): invalid cmd %d\r\n", cmd_id);
+      return false;
     } else {
-      // not an command to device, only an driver command
+      // local driver command
       IK_PRINTF("PostCommand (local): %s\r\n",
                 ik_cmd_local_str[cmd_id - COMMAND_BASE]);
+
+      switch (cmd_id) {
+      case IK_CMD_DELAY:
+        m_delayUntil = millis() + command[1];
+        break;
+
+      default:
+        break;
+      }
     }
   }
 
-  return false;
+  return true;
 }
 
 void Adafruit_IntelliKeys::PostSetLED(uint8_t number, uint8_t value) {
   uint8_t command[IK_REPORT_LEN] = {IK_CMD_LED, number, value, 0, 0, 0, 0, 0};
+  PostCommand(command);
+}
+
+void Adafruit_IntelliKeys::PostDelay(uint8_t msec) {
+  uint8_t command[IK_REPORT_LEN];
+  command[0] = IK_CMD_DELAY;
+  command[1] = msec; //  msec delay
   PostCommand(command);
 }
 
@@ -688,6 +745,8 @@ void Adafruit_IntelliKeys::StoreEEProm(uint8_t data, uint8_t add_lsb,
         m_eepromData.serialnumber[1] == '-') {
       m_bEepromValid = true;
 
+      IK_PRINTF("EEPROM data valid\n");
+
       //  the first wave of IntelliSwitch dongles are incorrectly
       //  set to use the IntelliKeys VID/PID.  Check for that here
       //  and adjust the device type accordingly.
@@ -715,10 +774,13 @@ void Adafruit_IntelliKeys::hid_reprot_received_cb(uint8_t daddr, uint8_t idx,
   }
 
   ProcessInput(report, len);
-
-  if (!tuh_hid_receive_report(daddr, idx)) {
-    IK_PRINTF("Failed to receive report\n");
-    return;
+  if (_expected_resp) {
+    _expected_resp--;
+    if (!tuh_hid_receive_report(daddr, idx)) {
+      IK_PRINTF("Failed to receive report\n");
+      _expected_resp++;
+      return;
+    }
   }
 }
 

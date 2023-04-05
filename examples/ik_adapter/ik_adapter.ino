@@ -132,14 +132,14 @@ void loop1() {
 extern "C" {
 
 void tuh_mount_cb(uint8_t daddr) {
-  IKeys.mount(daddr);
   Serial.printf("Device attached, address = %d\r\n", daddr);
+  IKeys.mount(daddr);
 }
 
 /// Invoked when device is unmounted (bus reset/unplugged)
 void tuh_umount_cb(uint8_t daddr) {
-  IKeys.umount(daddr);
   Serial.printf("Device detached, address = %d\r\n", daddr);
+  IKeys.umount(daddr);
 }
 
 #if 0

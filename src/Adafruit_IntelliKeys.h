@@ -31,6 +31,8 @@
 #include "IKModifier.h"
 #include "IKUniversal.h"
 
+#define IK_CMD_FIFO_SIZE 128
+
 class Adafruit_IntelliKeys {
 public:
   Adafruit_IntelliKeys(void);
@@ -47,11 +49,13 @@ public:
   bool IsMouseDown(void);
 
   bool PostCommand(uint8_t *command);
+  void PostDelay(uint8_t msec);
   void PostSetLED(uint8_t number, uint8_t value);
   void PostKey(int code, int direction, int delayAfter = 0);
   void PostLiftAllModifiers(void);
   void PostCPRefresh();
 
+  void ProcessCommands();
   void ProcessInput(uint8_t const *data, uint8_t len);
 
   void OnToggle(int newValue);
@@ -72,8 +76,10 @@ public:
 private:
   uint8_t _daddr;
   uint8_t _opened;
+  uint32_t _expected_resp; // number of commands without response
 
   uint32_t m_lastLEDTime;
+  uint32_t m_delayUntil;
   uint32_t m_nextCorrect;
 
   uint8_t m_KeyBoardReport[7];
@@ -112,6 +118,10 @@ private:
   IKModifier m_modAlt;
   IKModifier m_modControl;
   IKModifier m_modCommand;
+
+  tu_fifo_t _cmd_ff;
+  OSAL_MUTEX_DEF(_cmd_ff_mutex);
+  uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];
 
   bool Start(void);
 
