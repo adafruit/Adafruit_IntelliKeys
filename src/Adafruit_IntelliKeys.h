@@ -28,6 +28,9 @@
 #include "Adafruit_TinyUSB.h"
 #include "intellikeysdefs.h"
 
+#include "IKModifier.h"
+#include "IKUniversal.h"
+
 class Adafruit_IntelliKeys {
 public:
   Adafruit_IntelliKeys(void);
@@ -36,12 +39,42 @@ public:
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
+  // Function named following IKDevice in OpenIKeys
+  bool IsOpen(void) { return _opened; }
+  bool IsSwitchedOn(void) { return m_toggle == 1; }
+  bool IsNumLockOn(void);
+  bool IsCapsLockOn(void);
+  bool IsMouseDown(void);
+
+  bool PostCommand(uint8_t *command);
+  void PostSetLED(uint8_t number, uint8_t value);
+  void PostKey(int code, int direction, int delayAfter = 0);
+  void PostLiftAllModifiers(void);
+  void PostCPRefresh();
+
+  void ProcessInput(uint8_t const *data, uint8_t len);
+
+  void OnToggle(int newValue);
+  void OnSwitch(int nswitch, int state);
+  void OnSensorChange(int sensor, int value);
+
+  void SetLEDs(void);
+  void SweepSound(int iStartFreq, int iEndFreq, int iDuration);
+  void DoCorrect(void);
+  void ResetKeyboard(void);
+  void ResetMouse(void);
+
+  void Periodic(void);
+
   void hid_reprot_received_cb(uint8_t dev_addr, uint8_t instance,
                               uint8_t const *report, uint16_t len);
 
 private:
   uint8_t _daddr;
-  uint8_t _state;
+  uint8_t _opened;
+
+  uint32_t m_lastLEDTime;
+  uint32_t m_nextCorrect;
 
   uint8_t m_KeyBoardReport[7];
   uint8_t m_MouseReport[3];
@@ -56,23 +89,35 @@ private:
 
   //  reading the eeprom
   eeprom_t m_eepromData;
+  unsigned int m_eepromRequestTime[sizeof(eeprom_t)];
+  bool m_eepromDataValid[sizeof(eeprom_t)];
   bool m_bEepromValid;
+
+  //  for correction
+  uint8_t m_membranePressedInCorrectMode[IK_RESOLUTION_X][IK_RESOLUTION_X];
+  uint8_t m_switchesPressedInCorrectMode[IK_NUM_SWITCHES];
 
   uint8_t m_firmwareVersionMajor;
   uint8_t m_firmwareVersionMinor;
 
-  // Function named following IKDevice in OpenIKeys
+  uint8_t *m_lastExecuted;
+  int m_last5Overlays[5];
+
+  int m_lastCodeUp;
+  bool m_bShifted;
+
+  int m_devType;
+
+  IKModifier m_modShift;
+  IKModifier m_modAlt;
+  IKModifier m_modControl;
+  IKModifier m_modCommand;
+
   bool Start(void);
 
-  bool PostCommand(uint8_t *command);
-  void ProcessInput(uint8_t const *data, uint8_t len);
-
-  void OnToggle(int newValue);
-  void OnSwitch(int nswitch, int state);
-  void OnSensorChange(int sensor, int value);
-
-  void SweepSound(int iStartFreq, int iEndFreq, int iDuration);
-  void PostSetLED(int number, int value);
+  bool IsIntelliSwitchV1(void);
+  void SetDevType(int devType) { m_devType = devType; }
+  void StoreEEProm(uint8_t data, uint8_t add_lsb, uint8_t add_msb);
 
   // ezusb
   bool ezusb_StartDevice(void);

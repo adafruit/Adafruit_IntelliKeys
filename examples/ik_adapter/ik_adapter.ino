@@ -84,8 +84,9 @@ void loop() {}
 void setup1() {
   IKeys.begin();
 
-  while (!Serial)
+  while (!Serial) {
     delay(10); // wait for native usb
+  }
   Serial.println("Core1 setup to run TinyUSB host with pio-usb");
 
   // Check for CPU frequency, must be multiple of 120Mhz for bit-banging USB
@@ -119,7 +120,10 @@ void setup1() {
   USBHost.begin(1);
 }
 
-void loop1() { USBHost.task(); }
+void loop1() {
+  IKeys.Periodic();
+  USBHost.task();
+}
 
 //--------------------------------------------------------------------+
 // TinyUSB Host callbacks

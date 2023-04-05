@@ -60,6 +60,28 @@ const char *const ik_cmd_str[] = {
     [IK_CMD_START_OUTPUT] = "START_OUTPUT",
     [IK_CMD_STOP_OUTPUT] = "STOP_OUTPUT",
     [IK_CMD_ALL_SENSORS] = "ALL_SENSORS",
+    [CMD_BASE + 19] = "UNKNOWN",
+    [CMD_BASE + 20] = "UNKNOWN",
+    [IK_CMD_REFLECT_KEYSTROKE] = "REFLECT_KEYSTROKE",
+    [IK_CMD_REFLECT_MOUSE_MOVE] = "REFLECT_MOUSE_MOVE",
+};
+
+const char *const ik_cmd_local_str[]{
+    [COMMAND_BASE - COMMAND_BASE] = "BASE",
+    [IK_CMD_DELAY - COMMAND_BASE] = "IK_CMD_DELAY",
+    [IK_CMD_MOUSE_MOVE - COMMAND_BASE] = "IK_CMD_MOUSE_MOVE",
+    [IK_CMD_MOUSE_BUTTON - COMMAND_BASE] = "IK_CMD_MOUSE_BUTTON",
+    [IK_CMD_KEYBOARD - COMMAND_BASE] = "IK_CMD_KEYBOARD",
+    [IK_CMD_KEY_DONE - COMMAND_BASE] = "IK_CMD_KEY_DONE",
+    [IK_CMD_KEY_START - COMMAND_BASE] = "IK_CMD_KEY_START",
+    [IK_CMD_KEY_REPEAT - COMMAND_BASE] = "IK_CMD_KEY_REPEAT",
+    [IK_CMD_CP_HELP - COMMAND_BASE] = "IK_CMD_CP_HELP",
+    [IK_CMD_CP_LIST_FEATURES - COMMAND_BASE] = "IK_CMD_CP_LIST_FEATURES",
+    [IK_CMD_CP_REFRESH - COMMAND_BASE] = "IK_CMD_CP_REFRESH",
+    [IK_CMD_CP_TOGGLE - COMMAND_BASE] = "IK_CMD_CP_TOGGLE",
+    [IK_CMD_KEYBOARD_UNICODE - COMMAND_BASE] = "IK_CMD_KEYBOARD_UNICODE",
+    [IK_CMD_LIFTALLMODIFIERS - COMMAND_BASE] = "IK_CMD_LIFTALLMODIFIERS",
+    [IK_CMD_CP_REPORT_REALTIME - COMMAND_BASE] = "IK_CMD_CP_REPORT_REALTIME",
 };
 
 const char *const ik_event_str[] = {
@@ -95,7 +117,10 @@ const char *const ik_event_str[] = {
 
 Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   _daddr = 0;
-  _state = 0;
+  _opened = false;
+
+  m_lastLEDTime = 0;
+  m_nextCorrect = 0;
 
   m_lastOverlay = -1;
   m_lastOverlayTime = 0;
@@ -104,9 +129,24 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   m_toggle = -1;
 
   m_bEepromValid = false;
+  m_devType = 0;
 
   m_firmwareVersionMajor = 0;
   m_firmwareVersionMinor = 0;
+
+  m_lastExecuted = NULL;
+
+  for (int i2 = 0; i2 < 5; i2++) {
+    m_last5Overlays[i2] = -1;
+  }
+
+  for (unsigned int i3 = 0; i3 < sizeof(m_KeyBoardReport); i3++) {
+    m_KeyBoardReport[i3] = 0;
+  }
+
+  for (unsigned int i4 = 0; i4 < sizeof(m_MouseReport); i4++) {
+    m_MouseReport[i4] = 0;
+  }
 }
 
 void Adafruit_IntelliKeys::begin(void) {}
@@ -149,6 +189,41 @@ void Adafruit_IntelliKeys::umount(uint8_t daddr) {
   }
 }
 
+void Adafruit_IntelliKeys::Periodic(void) {
+  if (!IsOpen()) {
+    return; // nothing to do
+  }
+
+  uint32_t now = millis();
+
+  //  setLEDs
+  if (now > m_lastLEDTime + 100) {
+    // SetLEDs();
+    m_lastLEDTime = now;
+  }
+
+  //  request a correction every so often.
+  if (now > m_nextCorrect) {
+    // DoCorrect();
+    m_nextCorrect = now + 500;
+  }
+
+  //  send for not-yet valid eeprom bytes
+  static bool bFirst = true;
+  if (!m_bEepromValid && bFirst) {
+    for (uint8_t i = 0; i < sizeof(eeprom_t); i++) {
+      if (!m_eepromDataValid[i] && m_eepromRequestTime[i] + 500 < now) {
+        uint8_t report[8] = {
+            IK_CMD_EEPROM_READBYTE, (uint8_t)(0x80 + i), 0x1F, 0, 0, 0, 0, 0};
+        PostCommand(report);
+        m_eepromRequestTime[i] = now;
+      }
+    }
+
+    bFirst = false;
+  }
+}
+
 //--------------------------------------------------------------------+
 // Private
 //--------------------------------------------------------------------+
@@ -175,24 +250,146 @@ bool Adafruit_IntelliKeys::Start(void) {
   command[1] = 0; //  unused
   PostCommand(command);
 
+  //  reset keyboard
+  ResetKeyboard();
+
+  //  reset mouse
+  ResetMouse();
+
+  _opened = true;
+
   return false;
+}
+
+bool Adafruit_IntelliKeys::IsNumLockOn(void) {
+  // implement later
+  return false;
+}
+
+bool Adafruit_IntelliKeys::IsCapsLockOn(void) {
+  // implement later
+  return false;
+}
+
+bool Adafruit_IntelliKeys::IsMouseDown(void) {
+  // implement later
+  return false;
+}
+
+void Adafruit_IntelliKeys::DoCorrect(void) {
+  //  clear out data
+  for (int i = 0; i < IK_NUM_SWITCHES; i++) {
+    m_switchesPressedInCorrectMode[i] = 0;
+  }
+  for (int x = 0; x < IK_RESOLUTION_X; x++) {
+    for (int y = 0; y < IK_RESOLUTION_Y; y++) {
+      m_membranePressedInCorrectMode[y][x] = 0;
+    }
+  }
+
+  //  send the command
+  uint8_t report[IK_REPORT_LEN] = {IK_CMD_CORRECT, 0, 0, 0, 0, 0, 0, 0};
+  PostCommand(report);
 }
 
 bool Adafruit_IntelliKeys::PostCommand(uint8_t *command) {
-  uint8_t idx = 0;
+  uint8_t cmd_id = command[0];
 
-  IK_PRINTF("PostCommand: %s\r\n", ik_cmd_str[command[0]]);
+  if (cmd_id < COMMAND_BASE) {
+    if (cmd_id > IK_CMD_REFLECT_MOUSE_MOVE) {
+      IK_PRINTF("PostCommand: %d (missing str)\r\n", cmd_id);
+    } else {
+      IK_PRINTF("PostCommand: %s\r\n", ik_cmd_str[cmd_id]);
+    }
 
-  // blocking for now
-  while (!tuh_hid_send_report(_daddr, idx, 0, command, IK_REPORT_LEN)) {
-    tuh_task();
+    uint8_t idx = 0;
+
+    // blocking for now
+    while (!tuh_hid_send_report(_daddr, idx, 0, command, IK_REPORT_LEN)) {
+      tuh_task();
+    }
+  } else {
+    if (cmd_id > IK_CMD_CP_REPORT_REALTIME) {
+      IK_PRINTF("PostCommand (local): %d (missing str)\r\n",
+                cmd_id - COMMAND_BASE);
+    } else {
+      // not an command to device, only an driver command
+      IK_PRINTF("PostCommand (local): %s\r\n",
+                ik_cmd_local_str[cmd_id - COMMAND_BASE]);
+    }
   }
+
   return false;
 }
 
-void Adafruit_IntelliKeys::PostSetLED(int number, int value) {
+void Adafruit_IntelliKeys::PostSetLED(uint8_t number, uint8_t value) {
   uint8_t command[IK_REPORT_LEN] = {IK_CMD_LED, number, value, 0, 0, 0, 0, 0};
   PostCommand(command);
+}
+
+void Adafruit_IntelliKeys::PostKey(int code, int direction, int delayAfter) {
+  //  track shift status and last code up for smart typing.
+
+  if (direction == IK_UP) {
+    if (code == UNIVERSAL_SHIFT || code == UNIVERSAL_RIGHT_SHIFT) {
+      m_bShifted = true;
+    } else {
+      m_lastCodeUp = code;
+      m_bShifted = false;
+    }
+  }
+
+  uint8_t command[IK_REPORT_LEN];
+  command[0] = IK_CMD_KEYBOARD;
+  command[1] = code;
+  command[2] = direction;
+  command[3] = delayAfter & 0xff;
+  command[4] = (delayAfter / 256) & 0xff;
+  PostCommand(command);
+}
+
+void Adafruit_IntelliKeys::SetLEDs(void) {
+  if (!IsSwitchedOn()) {
+    return;
+  }
+
+  if (!IsOpen()) {
+    return;
+  }
+
+  bool bShift = (m_modShift.GetState() != 0);
+  bool bControl = (m_modControl.GetState() != 0);
+  bool bAlt = (m_modAlt.GetState() != 0);
+  bool bCommand = (m_modCommand.GetState() != 0);
+  bool bNumLock = IsNumLockOn();
+  bool bMouse = IsMouseDown();
+  bool bCapsLock = IsCapsLockOn();
+
+  //  3 lights is shift, caps lock, mouse down
+  PostSetLED(1, bShift);
+  PostSetLED(4, bCapsLock);
+  PostSetLED(7, bMouse);
+
+  //  6 lights is alt, control/command, num lock
+  bool b6lights =
+      (IKSettings::GetSettings()->m_iIndicatorLights == kSettings6lights);
+  if (b6lights) {
+    PostSetLED(2, bAlt);
+    PostSetLED(5, bControl || bCommand);
+    PostSetLED(8, bNumLock);
+
+    PostSetLED(3, false);
+    PostSetLED(6, false);
+    PostSetLED(9, false);
+  } else {
+    PostSetLED(3, bShift);
+    PostSetLED(6, bCapsLock);
+    PostSetLED(9, bMouse);
+
+    PostSetLED(2, false);
+    PostSetLED(5, false);
+    PostSetLED(8, false);
+  }
 }
 
 void Adafruit_IntelliKeys::SweepSound(int iStartFreq, int iEndFreq,
@@ -250,10 +447,10 @@ void Adafruit_IntelliKeys::OnToggle(int newValue) {
     }
 
     //  reset keyboard
-    // ResetKeyboard();
+    ResetKeyboard();
 
     //  reset mouse
-    // ResetMouse();
+    ResetMouse();
 
     //  reset level
     // SetLevel(1);
@@ -374,14 +571,14 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
       OnCorrectDone();
       PostReportDataToControlPanel(true);
       break;
-
-    case IK_EVENT_EEPROM_READBYTE:
-      StoreEEProm(qe.buffer[1],qe.buffer[2],qe.buffer[3]);
-      break;
-
-    case IK_EVENT_AUTOPILOT_STATE:
-      break;
 #endif
+
+  case IK_EVENT_EEPROM_READBYTE:
+    StoreEEProm(data[1], data[2], data[3]);
+    break;
+
+  case IK_EVENT_AUTOPILOT_STATE:
+    break;
 
   default:
     break;
@@ -395,6 +592,112 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
   case IK_EVENT_SWITCH_REPEAT:
     //  error??
     break;
+  }
+}
+
+void Adafruit_IntelliKeys::PostLiftAllModifiers() {
+  //  send the command
+  uint8_t report[IK_REPORT_LEN] = {
+      IK_CMD_LIFTALLMODIFIERS, 0, 0, 0, 0, 0, 0, 0};
+  PostCommand(report);
+}
+
+void Adafruit_IntelliKeys::PostCPRefresh() {
+  uint8_t command[IK_REPORT_LEN] = {IK_CMD_CP_REFRESH, 0, 0, 0, 0, 0, 0, 0};
+  PostCommand(command);
+}
+
+void Adafruit_IntelliKeys::ResetKeyboard(void) {
+  m_lastExecuted = NULL;
+
+  for (int i2 = 0; i2 < 5; i2++) {
+    m_last5Overlays[i2] = -1;
+  }
+
+  //  reset keyboard
+  for (unsigned int i = 0; i < sizeof(m_KeyBoardReport); i++) {
+    m_KeyBoardReport[i] = 0;
+  }
+
+  uint8_t msg[IK_REPORT_LEN] = {IK_CMD_REFLECT_KEYSTROKE, 0, 0, 0, 0, 0, 0, 0};
+  for (unsigned int j = 0; j < sizeof(m_KeyBoardReport); j++) {
+    msg[j + 1] = m_KeyBoardReport[j];
+  }
+
+  PostCommand(msg);
+
+  //  reconcile with modifier objects?
+  PostLiftAllModifiers();
+}
+
+void Adafruit_IntelliKeys::ResetMouse(void) {
+  //  reset mouse
+  for (unsigned int i = 0; i < sizeof(m_MouseReport); i++) {
+    m_MouseReport[i] = 0;
+  }
+
+  uint8_t msg2[] = {IK_CMD_REFLECT_MOUSE_MOVE, 0, 0, 0, 0, 0, 0, 0};
+  for (unsigned int j = 0; j < sizeof(m_MouseReport); j++) {
+    msg2[j + 1] = m_MouseReport[j];
+  }
+
+  PostCommand(msg2);
+}
+
+bool Adafruit_IntelliKeys::IsIntelliSwitchV1() {
+  if (m_eepromData.serialnumber[0] != 'C') {
+    return false;
+  }
+
+  if (m_eepromData.serialnumber[1] != '-') {
+    return false;
+  }
+
+  for (unsigned int i = 2; i < sizeof(eeprom_t); i++) {
+    if (m_eepromData.serialnumber[i] != 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void Adafruit_IntelliKeys::StoreEEProm(uint8_t data, uint8_t add_lsb,
+                                       uint8_t add_msb) {
+  //  store the uint8_t received;
+  int ndx = add_lsb - 0x80;
+
+  uint8_t *e = (uint8_t *)&m_eepromData;
+  e[ndx] = data;
+
+  //  mark the uint8_t valid;
+  m_eepromDataValid[ndx] = true;
+
+  //  check to see if all the uint8_ts are valid.
+  //  if so, say we're valid and refresh the
+  //  control panel.
+  int nInvalid = 0;
+  for (unsigned int i = 0; i < sizeof(eeprom_t); i++) {
+    if (!m_eepromDataValid[i]) {
+      nInvalid++;
+    }
+  }
+
+  if (nInvalid == 0 && !m_bEepromValid) {
+    if (m_eepromData.serialnumber[0] == 'C' &&
+        m_eepromData.serialnumber[1] == '-') {
+      m_bEepromValid = true;
+
+      //  the first wave of IntelliSwitch dongles are incorrectly
+      //  set to use the IntelliKeys VID/PID.  Check for that here
+      //  and adjust the device type accordingly.
+
+      if (IsIntelliSwitchV1()) {
+        SetDevType(2);
+      }
+
+      PostCPRefresh();
+    }
   }
 }
 
@@ -502,7 +805,8 @@ bool Adafruit_IntelliKeys::ezusb_downloadHex(INTEL_HEX_RECORD const *ptr,
   // First download all the records that go in external ram
   while (ptr->Type == 0) {
     if (INTERNAL_RAM(ptr->Address) == internal_ram) {
-      // IK_PRINTF("Downloading %d bytes to 0x%x\n", ptr->Length, ptr->Address);
+      // IK_PRINTF("Downloading %d uint8_ts to 0x%x\n", ptr->Length,
+      // ptr->Address);
 
       uint8_t const bRequest =
           internal_ram ? ANCHOR_LOAD_INTERNAL : ANCHOR_LOAD_EXTERNAL;

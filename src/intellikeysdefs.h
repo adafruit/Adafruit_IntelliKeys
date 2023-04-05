@@ -57,7 +57,36 @@ enum IK_LEDS {
 #define IK_CMD_STOP_OUTPUT (CMD_BASE + 17)
 #define IK_CMD_ALL_SENSORS (CMD_BASE + 18)
 
+#define JWH 1
+
+#if JWH
+#define IK_CMD_REFLECT_KEYSTROKE (CMD_BASE + 21)
+#define IK_CMD_REFLECT_MOUSE_MOVE (CMD_BASE + 22)
+#endif
+
 #define IK_CMD_GET_SN CMD_BASE + 40
+
+//  some internal commands that don't make it to the device
+#define COMMAND_BASE 100
+#define IK_CMD_DELAY (COMMAND_BASE + 1)        // (msec)
+#define IK_CMD_MOUSE_MOVE (COMMAND_BASE + 2)   // (x, y)
+#define IK_CMD_MOUSE_BUTTON (COMMAND_BASE + 3) // (left/right, down/up)
+#define IK_CMD_KEYBOARD (COMMAND_BASE + 4)     // (keycode, down/up)
+#define IK_CMD_KEY_DONE                                                        \
+  (COMMAND_BASE + 5) // signal downstream that a key is done
+#define IK_CMD_KEY_START                                                       \
+  (COMMAND_BASE + 6) // signal downstream that a key is starting
+#define IK_CMD_KEY_REPEAT                                                      \
+  (COMMAND_BASE + 7) // signal downstream that a key is repeating
+
+#define IK_CMD_CP_HELP (COMMAND_BASE + 8)
+#define IK_CMD_CP_LIST_FEATURES (COMMAND_BASE + 9)
+#define IK_CMD_CP_REFRESH (COMMAND_BASE + 10)
+#define IK_CMD_CP_TOGGLE (COMMAND_BASE + 11)
+
+#define IK_CMD_KEYBOARD_UNICODE (COMMAND_BASE + 12) // lead, trail, down/up
+#define IK_CMD_LIFTALLMODIFIERS (COMMAND_BASE + 13)
+#define IK_CMD_CP_REPORT_REALTIME (COMMAND_BASE + 14)
 
 //
 //  result codes/data sent to the software
