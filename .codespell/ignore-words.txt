@@ -1,0 +1,5 @@
+synopsys
+sie
+inout
+busses
+bloaded
