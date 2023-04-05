@@ -180,30 +180,12 @@ void remap_key(hid_keyboard_report_t const* original_report, hid_keyboard_report
     }
   }
 }
+#endif
 
 // Invoked when received report from device via interrupt endpoint
-void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len) {
-  if ( len != 8 ) {
-    Serial.printf("report len = %u NOT 8, probably something wrong !!\r\n", len);
-  }else {
-    hid_keyboard_report_t remapped_report;
-    remap_key((hid_keyboard_report_t const*) report, &remapped_report);
-
-    // send remapped report to PC
-    // NOTE: for better performance you should save/queue remapped report instead of
-    // blocking wait for usb_hid ready here
-    while ( !usb_hid.ready() ) {
-      yield();
-    }
-
-    usb_hid.sendReport(0, &remapped_report, sizeof(hid_keyboard_report_t));
-  }
-
-  // continue to request to receive report
-  if (!tuh_hid_receive_report(dev_addr, instance)) {
-    Serial.printf("Error: cannot request to receive report\r\n");
-  }
+void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance,
+                                uint8_t const *report, uint16_t len) {
+  IKeys.hid_reprot_received_cb(dev_addr, instance, report, len);
 }
-#endif
 
 } // extern C

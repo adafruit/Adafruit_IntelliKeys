@@ -36,16 +36,45 @@ public:
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
-  // Internal
-  void process_download_firmware(tuh_xfer_t *xfer);
+  void hid_reprot_received_cb(uint8_t dev_addr, uint8_t instance,
+                              uint8_t const *report, uint16_t len);
 
 private:
   uint8_t _daddr;
   uint8_t _state;
 
-  bool start(void);
-  bool postCommand(uint8_t *command);
+  uint8_t m_KeyBoardReport[7];
+  uint8_t m_MouseReport[3];
+  int m_toggle; // on/off switch
+  int m_switches[IK_NUM_SWITCHES];
+  int m_sensors[IK_NUM_SENSORS];
 
+  //  overlay recognition
+  int m_lastOverlay;
+  uint32_t m_lastOverlayTime;
+  int m_currentOverlay;
+
+  //  reading the eeprom
+  eeprom_t m_eepromData;
+  bool m_bEepromValid;
+
+  uint8_t m_firmwareVersionMajor;
+  uint8_t m_firmwareVersionMinor;
+
+  // Function named following IKDevice in OpenIKeys
+  bool Start(void);
+
+  bool PostCommand(uint8_t *command);
+  void ProcessInput(uint8_t const *data, uint8_t len);
+
+  void OnToggle(int newValue);
+  void OnSwitch(int nswitch, int state);
+  void OnSensorChange(int sensor, int value);
+
+  void SweepSound(int iStartFreq, int iEndFreq, int iDuration);
+  void PostSetLED(int number, int value);
+
+  // ezusb
   bool ezusb_StartDevice(void);
   bool ezusb_DownloadIntelHex(INTEL_HEX_RECORD const *record);
   bool ezusb_8051Reset(uint8_t resetBit);
