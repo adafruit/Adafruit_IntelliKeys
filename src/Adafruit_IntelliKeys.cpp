@@ -22,6 +22,8 @@
  * THE SOFTWARE.
  */
 
+#include <Arduino.h>
+
 #include "Adafruit_IntelliKeys.h"
 #include "intellikeysdefs.h"
 
