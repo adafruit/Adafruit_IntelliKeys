@@ -29,7 +29,13 @@
 #include "intellikeysdefs.h"
 
 #include "IKModifier.h"
+#include "IKOverlay.h"
 #include "IKUniversal.h"
+
+//  maximum numbers
+#define MAX_INTELLIKEYS 10
+#define MAX_STANDARD_OVERLAYS 8
+#define MAX_SWITCH_OVERLAYS 30
 
 #define IK_CMD_FIFO_SIZE 128
 
@@ -54,6 +60,7 @@ public:
   void PostKey(int code, int direction, int delayAfter = 0);
   void PostLiftAllModifiers(void);
   void PostCPRefresh();
+  void PostReportDataToControlPanel(bool bForce = false);
   void ProcessCommands();
 
   void OnToggle(int newValue);
@@ -64,11 +71,21 @@ public:
 
   void SetLEDs(void);
   void SweepSound(int iStartFreq, int iEndFreq, int iDuration);
-  void DoCorrect(void);
+
+  void OnMembranePress(int x, int y);
+  void OnMembraneRelease(int x, int y);
+  void OnCorrectSwitch(int switchnum);
+  void DoCorrect();
+  void OnCorrectMembrane(int x, int y);
+  void OnCorrectDone();
+
   void ResetKeyboard(void);
   void ResetMouse(void);
 
+  int GetLevel();
   void SetLevel(int level);
+  IKOverlay *GetCurrentOverlay();
+  IKOverlay *GetStandardOverlay(int index);
   void SettleOverlay();
   void OnStdOverlayChange();
   void OverlayRecognitionFeedback();
@@ -79,6 +96,11 @@ public:
   void LongKeySound();
   void KeySound(int msLength);
   void KeySoundVol(int msLength, int volume = -1);
+
+  void FindDomain(IKOverlay *pOverlay, int *domainNumber, bool *bPressAnywhere,
+                  int *switchNumber);
+  void Interpret();
+  void InterpretRaw();
 
   void Periodic(void);
 
@@ -103,6 +125,8 @@ private:
   int m_switches[IK_NUM_SWITCHES];
   int m_sensors[IK_NUM_SENSORS];
 
+  int m_lastSwitch;
+
   //  overlay recognition
   int m_lastOverlay;
   uint32_t m_lastOverlayTime;
@@ -117,6 +141,8 @@ private:
   //  for correction
   uint8_t m_membranePressedInCorrectMode[IK_RESOLUTION_X][IK_RESOLUTION_X];
   uint8_t m_switchesPressedInCorrectMode[IK_NUM_SWITCHES];
+
+  int m_membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
 
   uint8_t m_firmwareVersionMajor;
   uint8_t m_firmwareVersionMinor;
@@ -137,6 +163,7 @@ private:
   uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];
 
   bool Start(void);
+  void Reset(void);
 
   // ezusb
   bool ezusb_StartDevice(void);

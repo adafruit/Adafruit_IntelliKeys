@@ -67,7 +67,7 @@ enum IK_LEDS {
 #define IK_CMD_GET_SN CMD_BASE + 40
 
 //  some internal commands that don't make it to the device
-#define COMMAND_BASE 100
+#define COMMAND_BASE 100                       // 0x64
 #define IK_CMD_DELAY (COMMAND_BASE + 1)        // (msec)
 #define IK_CMD_MOUSE_MOVE (COMMAND_BASE + 2)   // (x, y)
 #define IK_CMD_MOUSE_BUTTON (COMMAND_BASE + 3) // (left/right, down/up)
@@ -92,7 +92,7 @@ enum IK_LEDS {
 //  result codes/data sent to the software
 //  see firmware documentation for details
 //
-#define EVENT_BASE 50
+#define EVENT_BASE 50 // 0x32
 #define IK_EVENT_ACK (EVENT_BASE + 1)
 #define IK_EVENT_MEMBRANE_PRESS (EVENT_BASE + 2)
 #define IK_EVENT_MEMBRANE_RELEASE (EVENT_BASE + 3)

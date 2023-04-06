@@ -135,12 +135,20 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
 
   m_toggle = -1;
 
+  for (int x = 0; x < IK_RESOLUTION_X; x++) {
+    for (int y = 0; y < IK_RESOLUTION_Y; y++) {
+      m_membrane[y][x] = 0;
+    }
+  }
+
   m_bEepromValid = false;
 
   m_firmwareVersionMajor = 0;
   m_firmwareVersionMinor = 0;
 
   m_lastExecuted = NULL;
+
+  m_lastSwitch = 0;
 
   for (int i2 = 0; i2 < 5; i2++) {
     m_last5Overlays[i2] = -1;
@@ -157,6 +165,8 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
   tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
 }
+
+void Adafruit_IntelliKeys::Reset(void) {}
 
 void Adafruit_IntelliKeys::begin(void) {}
 
@@ -233,6 +243,413 @@ void Adafruit_IntelliKeys::Periodic(void) {
   }
 
   ProcessCommands();
+
+  if (HasStandardOverlay()) {
+    Interpret();
+  } else {
+    InterpretRaw();
+  }
+}
+
+void Adafruit_IntelliKeys::InterpretRaw() {}
+
+void Adafruit_IntelliKeys::FindDomain(IKOverlay *pOverlay, int *domainNumber,
+                                      bool *bPressAnywhere, int *switchNumber) {
+  *bPressAnywhere = false;
+  *switchNumber = 0;
+  *domainNumber = 0;
+
+  //  first check membrane by column and then row,
+  //  both in reverse order.  This will favor
+  //  cells that are farther to the left and higher.
+
+  int col, row;
+  {
+    for (col = 0; col < IK_RESOLUTION_X; col++) {
+      for (row = 0; row < IK_RESOLUTION_Y; row++) {
+        if (m_membrane[IK_RESOLUTION_Y - 1 - row][IK_RESOLUTION_X - 1 - col]) {
+          int nd;
+          nd = pOverlay->GetDomainFromMembrane(
+              IK_RESOLUTION_X - 1 - col, IK_RESOLUTION_Y - 1 - row, GetLevel());
+          if (nd > 0) {
+            *domainNumber = nd;
+            *bPressAnywhere = true;
+            return;
+          }
+          *bPressAnywhere = true;
+        }
+      }
+    }
+  }
+
+  //  which switches are down?
+
+  int down[IK_NUM_SWITCHES] = {0, 0, 0, 0, 0, 0};
+  int domain[IK_NUM_SWITCHES] = {0, 0, 0, 0, 0, 0};
+
+  int j;
+  int nDown = 0;
+  for (j = 0; j < IK_NUM_SWITCHES; j++)
+    if (m_switches[j]) {
+      down[nDown] = j + 1;
+      domain[nDown] = pOverlay->GetDomainFromSwitch(j + 1, GetLevel());
+      nDown++;
+    }
+
+  //  if the same one is still down since last time, just return it.
+
+  if (m_lastSwitch > 0) {
+    for (j = 0; j < nDown; j++) {
+      if (m_lastSwitch == down[j]) {
+        *domainNumber = domain[j];
+        *bPressAnywhere = true;
+        *switchNumber = m_lastSwitch;
+        return;
+      }
+    }
+  }
+
+  //  find the new down.
+
+  m_lastSwitch = 0;
+  static bool bForward = true;
+
+  for (j = 0; j < nDown; j++) {
+    bForward = !bForward;
+    int jj = j;
+    if (!bForward)
+      jj = nDown - j - 1;
+
+    if (down[jj] > 0) {
+      m_lastSwitch = down[jj];
+      *domainNumber = domain[jj];
+      *bPressAnywhere = true;
+      *switchNumber = m_lastSwitch;
+      return;
+    }
+  }
+}
+
+IKOverlay *Adafruit_IntelliKeys::GetStandardOverlay(int index) {
+  if (index >= 0 && index <= MAX_STANDARD_OVERLAYS) {
+    // return &(m_standardOverlay[index]);
+    return NULL;
+  }
+  return NULL;
+}
+
+IKOverlay *Adafruit_IntelliKeys::GetCurrentOverlay() {
+  IKOverlay *pOv = NULL;
+
+  //  always use standard overlay if there is one
+  if (HasStandardOverlay()) {
+    return GetStandardOverlay(m_currentOverlay);
+  }
+
+  // TODO user overlay
+
+  return NULL;
+}
+
+void Adafruit_IntelliKeys::Interpret() {
+  enum { kPress = 0, kRelease, kRepeat, kSlide };
+
+  //  don't bother if we're not connected and switched on
+  if (!IsOpen()) {
+    return;
+  }
+
+  if (!IsSwitchedOn()) {
+    return;
+  }
+
+  //  don't bother if there is no current overlay
+  IKOverlay *pOverlay = GetCurrentOverlay();
+  if (pOverlay == NULL)
+    return;
+
+  //  find current settings
+  IKSettings *pSettings = IKSettings::GetSettings();
+
+  //  analyze switches and membrane.
+  int newDomain = 0;
+  bool PressAnywhere = false;
+  // bool bWasSwitch = false;
+  int switchNumber;
+
+  FindDomain(pOverlay, &newDomain, &PressAnywhere, &switchNumber);
+
+#if 0
+  if (m_newLevel>0 && !PressAnywhere)
+  {
+    SetLevel(m_newLevel);
+    m_newLevel = 0;
+  }
+
+  //  get pointers to the new and repeating (if any) data
+  BYTE *newDomainData     = pOverlay->GetUniversalCodesFromDomain(newDomain,GetLevel());
+  BYTE *repeatDomainData  = pOverlay->GetUniversalCodesFromDomain(m_repeatDomain,GetLevel());
+  BYTE *currentDomainData = pOverlay->GetUniversalCodesFromDomain(m_currentDomain,GetLevel());
+
+  //  sanity
+  if (newDomain!=0 && newDomainData==NULL)
+    newDomain = 0;
+  if (m_repeatDomain!=0 && repeatDomainData==NULL)
+    m_repeatDomain = 0;
+  if (m_currentDomain!=0 && currentDomainData==NULL)
+    m_currentDomain = 0;
+
+  unsigned int now = IKUtil::GetCurrentTimeMS();
+
+
+  //  play dead until the time arrives
+  IKASSERT(now+1000 >= m_deadUntil);
+  if ( now < m_deadUntil)
+    return;
+
+  //  what is the membrane doing?
+
+  int stage = -1;
+  if (m_currentDomain == 0 && newDomain != 0)
+    stage = kPress;
+  if (m_currentDomain != 0 && newDomain == 0)
+    stage = kRelease;
+  if (m_currentDomain != 0 && newDomain != 0 && m_currentDomain==newDomain)
+    stage = kRepeat;
+  if (m_currentDomain != 0 && newDomain != 0 && m_currentDomain!=newDomain)
+    stage = kSlide;
+
+  //  handle special setup keys here and bail
+  if (pOverlay->IsSetupOverlay())
+  {
+    if (!m_bDidSetup)
+    {
+      if ((stage == kPress || stage==kSlide))
+      {
+        m_bDidSetup = DoSetupKey(newDomainData);
+        if (m_bDidSetup)
+        {
+          m_currentDomain = newDomain;
+          return;
+        }
+      }
+    }
+    else
+    {
+      //  setup key in progress, wait for release
+      if (stage==kRelease || stage==-1)
+        m_bDidSetup = false;
+      m_currentDomain = newDomain;
+      return;
+    }
+  }
+
+  if (stage == kPress || stage == kSlide)
+    m_lastPress = now;
+  if (stage == kRelease)
+    m_lastRelease = now;
+
+  //  handle repeat latching
+  if (m_bRepeatLatched && stage == kRelease)
+    m_bRepeatLatchReleased = true;
+  if (m_bRepeatLatched && m_bRepeatLatchReleased && PressAnywhere)
+  {
+    PurgeQueues();
+    ResetKeyboard();
+    ShortKeySound();
+    m_bRepeatLatched = false;
+    newDomain = 0;
+    stage = -1;
+    m_deadUntil = now + DATAI(TEXT("Dead_Until_Time"),1000);
+    IKASSERT(m_deadUntil>now);
+    return;
+  }
+  if (m_bRepeatLatched)
+    stage = kRepeat;
+
+  if (stage == kRepeat && m_timeToRespond!=0)
+    stage = kPress;
+
+  //  do nothing if membrane is repeating but the key says no
+  if (stage== kRepeat && HasNonRepeating(repeatDomainData))
+  {
+    stage = -1;
+
+    //  lift any keys that are down.
+    if (CountRealCodes(repeatDomainData)==1 && m_ndown!=0)
+    {
+      //  release this code
+      if (!IsModifier(repeatDomainData[0]))
+        PostKey(repeatDomainData[0],IK_UP);
+      PostKeyDone();
+      m_ndown = 0;
+    }
+  }
+
+  //  do nothing if membrane is repeating but settings say no
+  //  and we're NOT moving the mouse.
+  if (stage== kRepeat && !pSettings->m_bRepeat && !HasOnlyMouseMoveActions(repeatDomainData))
+    stage = -1;
+
+  //  do nothing if the membrane is repeating but we have mouse clicks
+  if (stage== kRepeat && HasMouseClicks(repeatDomainData))
+    stage = -1;
+
+  //  do nothing if the membrane is repeating but we have setup codes
+  if (stage== kRepeat && HasSetupCodes(repeatDomainData))
+    stage = -1;
+
+  //  disallow slide with required lift off
+  if (stage == kSlide && pSettings->m_bRequiredLiftOff)
+    stage = -1;
+
+  //  disallow repeat with required lift off if we're not where we started
+  if (stage == kRepeat && pSettings->m_bRequiredLiftOff && newDomain != m_repeatDomain)
+  {
+    stage = -1;
+    LiftAllModifiers();
+    ResetKeyboard();
+    ResetMouse();
+    PostKeyDone();
+    m_ndown = 0;
+    m_repeatAfter = 0;
+    m_repeatDomain = 0;
+    m_timeToRespond = 0;
+  }
+
+  //  pressing or sliding: do the key
+  if ( stage == kPress || stage == kSlide )
+  {
+    //  if sliding, make sure repeating was stopped.
+    if (stage == kSlide)
+    {
+      if (CountRealCodes(currentDomainData)==1 && m_ndown!=0)
+      {
+        //  release this code
+        if (!IsModifier(currentDomainData[0]))
+          PostKey(currentDomainData[0],IK_UP);
+        PostKeyDone();
+        m_ndown = 0;
+      }
+
+      m_repeatAfter = 0;
+      m_repeatDomain = 0;
+      m_timeToRespond = 0;
+    }
+
+
+    {
+      //  response rate
+
+      if (now>m_timeToRespond)
+      {
+        int delay;
+        if (switchNumber>0)
+          delay = DATAI(TEXT("Switch_Response_Period"),50);
+        else
+          delay = 20*(15-pSettings->m_iResponseRate)*(15-pSettings->m_iResponseRate) + DATAI(TEXT("Min_Response_Time"),0);
+        if(delay>0 && m_timeToRespond==0)
+        {
+          m_timeToRespond = now + delay;
+        }
+        else
+        {
+          m_timeToRespond = 0;
+
+          if (IsIdle() && ((!pSettings->m_bRequiredLiftOff) ||
+                           (pSettings->m_bRequiredLiftOff && m_lastRelease > m_lastExecute)))
+          {
+            (void) ComputeMouseInc ( 0 ); //  resets accell
+
+            ShortKeySound();
+            PostKeyStart();
+
+            AppLibKillFloatingMessage();
+
+            m_ndown = ExecuteUniversalData(newDomainData);
+            m_lastExecute = now; // record time of most recent execution
+          }
+        }
+      }
+    }
+
+    //  compute when to Start repeating
+    //  anywhere from m_minRepeatStart to m_maxRepeatStart, depending on the repeat rate
+
+    int mr1 = DATAI(TEXT("Min_Repeat_Start"),1000);
+    int mr2 = DATAI(TEXT("Max_Repeat_Start"),4000);
+    int waitTime = mr1 +
+                   (15-pSettings->m_iRepeatRate)*(mr2-mr1)/14;
+    m_repeatAfter = IKUtil::GetCurrentTimeMS() + waitTime;
+    m_repeatDomain = newDomain;
+    m_nrepeat = 0;
+  }
+
+    //  releasing - stop any repeating
+  else if (stage == kRelease)  //   && !PressAnywhere)
+  {
+    if (CountRealCodes(currentDomainData)==1 && m_ndown!=0)
+    {
+      //  release this code 'cause it was not released
+      //  before
+      if (!IsModifier(currentDomainData[0]))
+        PostKey(currentDomainData[0],IK_UP);
+      m_ndown = 0;
+    }
+
+    if (IKSettings::GetSettings()->m_iShiftKeyAction==kSettingsShiftNoLatch)
+      LiftAllModifiers();
+
+    PurgeToLastStart();
+    PostKeyDone();
+    m_repeatAfter = 0;
+    m_repeatDomain = 0;
+    m_timeToRespond = 0;
+  }
+
+    //  repeating
+  else if (stage == kRepeat && repeatDomainData!=NULL)
+  {
+    m_timeToRespond = 0;
+
+    //  is it time to repeat yet?
+    if (now>=m_repeatAfter && m_repeatAfter!=0)
+    {
+      //  run the key again
+      PostKeyRepeat();
+      m_ndown = ExecuteUniversalData(repeatDomainData);
+
+      //  initialize some data for repeat latching
+      if (pSettings->m_bRepeat && pSettings->m_bRepeatLatching)
+      {
+        m_nrepeat++;
+        m_bRepeatLatched = true;
+        if (m_nrepeat==1)
+          m_bRepeatLatchReleased = false;
+      }
+
+      //  compute the next time to repeat.  If any mouse
+      //  actions, do it right away.
+      int delay = 0;
+      if (!HasMouseActions(repeatDomainData))
+        delay = GetRepeatDelayMS();
+      m_repeatAfter = now + delay;
+    }
+    else
+    {
+      //  not time to repeat yet.
+      //  But if it's a single mouse move, do it anyway.
+      if (IsMouseMove(repeatDomainData[0]) && repeatDomainData[1]==0)
+      {
+        m_ndown = ExecuteUniversalData(repeatDomainData);
+      }
+    }
+  }
+
+  //  the end.
+
+  m_currentDomain = newDomain;
+#endif
 }
 
 //--------------------------------------------------------------------+
@@ -292,6 +709,7 @@ void Adafruit_IntelliKeys::DoCorrect(void) {
   for (int i = 0; i < IK_NUM_SWITCHES; i++) {
     m_switchesPressedInCorrectMode[i] = 0;
   }
+
   for (int x = 0; x < IK_RESOLUTION_X; x++) {
     for (int y = 0; y < IK_RESOLUTION_Y; y++) {
       m_membranePressedInCorrectMode[y][x] = 0;
@@ -301,6 +719,35 @@ void Adafruit_IntelliKeys::DoCorrect(void) {
   //  send the command
   uint8_t report[IK_REPORT_LEN] = {IK_CMD_CORRECT, 0, 0, 0, 0, 0, 0, 0};
   PostCommand(report);
+}
+
+void Adafruit_IntelliKeys::OnCorrectMembrane(int x, int y) {
+  m_membranePressedInCorrectMode[y][x] = true;
+}
+
+void Adafruit_IntelliKeys::OnCorrectSwitch(int switchnum) {
+  int ns = switchnum;
+  m_switchesPressedInCorrectMode[ns - 1] = true;
+}
+
+void Adafruit_IntelliKeys::OnCorrectDone() {
+  for (int i = 0; i < IK_NUM_SWITCHES; i++) {
+    m_switches[i] = m_switchesPressedInCorrectMode[i];
+  }
+
+  for (int x = 0; x < IK_RESOLUTION_X; x++) {
+    for (int y = 0; y < IK_RESOLUTION_Y; y++) {
+      m_membrane[y][x] = m_membranePressedInCorrectMode[y][x];
+    }
+  }
+}
+
+void Adafruit_IntelliKeys::OnMembranePress(int x, int y) {
+  m_membrane[y][x] = 1;
+}
+
+void Adafruit_IntelliKeys::OnMembraneRelease(int x, int y) {
+  m_membrane[y][x] = 0;
 }
 
 // All commands processed in this function is sent to device
@@ -495,6 +942,13 @@ void Adafruit_IntelliKeys::SweepSound(int iStartFreq, int iEndFreq,
   }
 }
 
+void Adafruit_IntelliKeys::PostReportDataToControlPanel(bool bForce) {
+  PostDelay(5);
+  uint8_t command[IK_REPORT_LEN] = {
+      IK_CMD_CP_REPORT_REALTIME, bForce, 0, 0, 0, 0, 0, 0};
+  PostCommand(command);
+}
+
 void Adafruit_IntelliKeys::OnToggle(int newValue) {
   if (m_toggle != newValue) {
     // Reset state (command, input queues)
@@ -517,9 +971,6 @@ void Adafruit_IntelliKeys::OnToggle(int newValue) {
 
     //  reset mouse
     ResetMouse();
-
-    //  reset level
-    // SetLevel(1);
 
     // IKControlPanel::Refresh();
   }
@@ -580,28 +1031,29 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
 #endif
 
   switch (event_id) {
-#if 0
-    case IK_EVENT_MEMBRANE_PRESS:
-      OnMembranePress(qe.buffer[1],qe.buffer[2]);
-      if (IKEngine::GetEngine()->UseRawMode()&&!HasStandardOverlay()&&!IKEngine::GetEngine()->GetDiagnosticMode())
-        InterpretRaw();
-      PostReportDataToControlPanel();
-      break;
+  case IK_EVENT_MEMBRANE_PRESS:
+    OnMembranePress(data[1], data[2]);
+    if (!HasStandardOverlay()) {
+      InterpretRaw();
+    }
+    PostReportDataToControlPanel();
+    break;
 
-    case IK_EVENT_MEMBRANE_RELEASE:
-      OnMembraneRelease(qe.buffer[1],qe.buffer[2]);
-      if (IKEngine::GetEngine()->UseRawMode()&&!HasStandardOverlay()&&!IKEngine::GetEngine()->GetDiagnosticMode())
-        InterpretRaw();
-      PostReportDataToControlPanel();
-      break;
+  case IK_EVENT_MEMBRANE_RELEASE:
+    OnMembraneRelease(data[1], data[2]);
+    if (!HasStandardOverlay()) {
+      InterpretRaw();
+    }
+    PostReportDataToControlPanel();
+    break;
 
-    case IK_EVENT_SWITCH:
-      OnSwitch(qe.buffer[1],qe.buffer[2]);
-      if (IKEngine::GetEngine()->UseRawMode()&&!HasStandardOverlay()&&!IKEngine::GetEngine()->GetDiagnosticMode())
-        InterpretRaw();
-      PostReportDataToControlPanel();
-      break;
-#endif
+  case IK_EVENT_SWITCH:
+    OnSwitch(data[1], data[2]);
+    if (!HasStandardOverlay()) {
+      InterpretRaw();
+    }
+    PostReportDataToControlPanel();
+    break;
 
   case IK_EVENT_SENSOR_CHANGE:
     OnSensorChange(data[1], data[2]);
@@ -618,29 +1070,29 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
 
   case IK_EVENT_ONOFFSWITCH:
     OnToggle(data[1]);
-    // PostReportDataToControlPanel();
+    PostReportDataToControlPanel();
     break;
 
-#if 0
-    case IK_EVENT_CORRECT_MEMBRANE:
-      OnCorrectMembrane(qe.buffer[1],qe.buffer[2]);
-      if (IKEngine::GetEngine()->UseRawMode()&&!HasStandardOverlay()&&!IKEngine::GetEngine()->GetDiagnosticMode())
-        InterpretRaw();
-      PostReportDataToControlPanel();
-      break;
+  case IK_EVENT_CORRECT_MEMBRANE:
+    OnCorrectMembrane(data[1], data[2]);
+    if (!HasStandardOverlay()) {
+      InterpretRaw();
+    }
+    PostReportDataToControlPanel();
+    break;
 
-    case IK_EVENT_CORRECT_SWITCH:
-      OnCorrectSwitch(qe.buffer[1]);
-      if (IKEngine::GetEngine()->UseRawMode()&&!HasStandardOverlay()&&!IKEngine::GetEngine()->GetDiagnosticMode())
-        InterpretRaw();
-      PostReportDataToControlPanel();
-      break;
+  case IK_EVENT_CORRECT_SWITCH:
+    OnCorrectSwitch(data[1]);
+    if (!HasStandardOverlay()) {
+      InterpretRaw();
+    }
+    PostReportDataToControlPanel();
+    break;
 
-    case IK_EVENT_CORRECT_DONE:
-      OnCorrectDone();
-      PostReportDataToControlPanel(true);
-      break;
-#endif
+  case IK_EVENT_CORRECT_DONE:
+    OnCorrectDone();
+    PostReportDataToControlPanel(true);
+    break;
 
   case IK_EVENT_EEPROM_READBYTE:
     StoreEEProm(data[1], data[2], data[3]);
@@ -816,6 +1268,8 @@ void Adafruit_IntelliKeys::OverlayRecognitionFeedback() {
 
   // PostLedReconcile();
 }
+
+int Adafruit_IntelliKeys::GetLevel() { return m_currentLevel; }
 
 void Adafruit_IntelliKeys::SetLevel(int level) { m_currentLevel = level; }
 
