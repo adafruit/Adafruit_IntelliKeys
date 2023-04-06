@@ -136,7 +136,6 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   m_toggle = -1;
 
   m_bEepromValid = false;
-  m_devType = 0;
 
   m_firmwareVersionMajor = 0;
   m_firmwareVersionMinor = 0;
@@ -206,12 +205,6 @@ void Adafruit_IntelliKeys::Periodic(void) {
 
   // settle overlay
   SettleOverlay();
-
-  //  if (m_firmwareVersionMajor == 0)
-  //  {
-  //    uint8_t command[IK_REPORT_LEN] = {IK_CMD_GET_VERSION,0,0,0,0,0,0,0};
-  //    PostCommand(command);
-  //  }
 
   uint32_t now = millis();
 
@@ -342,9 +335,11 @@ void Adafruit_IntelliKeys::ProcessCommands() {
     while (!tuh_hid_send_report(_daddr, idx, 0, command, IK_REPORT_LEN)) {
       tuh_task();
     }
-    _expected_resp++;
 
+#if 0
+    _expected_resp++;
     tuh_hid_receive_report(_daddr, idx);
+#endif
   }
 }
 
@@ -760,6 +755,14 @@ void Adafruit_IntelliKeys::OnStdOverlayChange() {
 #endif
 }
 
+bool Adafruit_IntelliKeys::HasStandardOverlay() {
+  if (GetDevType() != 1) {
+    return false; //  only IK has standard overlays
+  }
+
+  return (m_currentOverlay != 7 && m_currentOverlay != -1);
+}
+
 void Adafruit_IntelliKeys::OverlayRecognitionFeedback() {
   // PostMonitorState(false);
 
@@ -830,24 +833,6 @@ void Adafruit_IntelliKeys::SettleOverlay() {
   }
 }
 
-bool Adafruit_IntelliKeys::IsIntelliSwitchV1() {
-  if (m_eepromData.serialnumber[0] != 'C') {
-    return false;
-  }
-
-  if (m_eepromData.serialnumber[1] != '-') {
-    return false;
-  }
-
-  for (unsigned int i = 2; i < sizeof(eeprom_t); i++) {
-    if (m_eepromData.serialnumber[i] != 0) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 void Adafruit_IntelliKeys::ShortKeySound() { KeySound(50); }
 
 void Adafruit_IntelliKeys::LongKeySound() { KeySound(700); }
@@ -895,17 +880,7 @@ void Adafruit_IntelliKeys::StoreEEProm(uint8_t data, uint8_t add_lsb,
     if (m_eepromData.serialnumber[0] == 'C' &&
         m_eepromData.serialnumber[1] == '-') {
       m_bEepromValid = true;
-
       IK_PRINTF("EEPROM data valid\n");
-
-      //  the first wave of IntelliSwitch dongles are incorrectly
-      //  set to use the IntelliKeys VID/PID.  Check for that here
-      //  and adjust the device type accordingly.
-
-      if (IsIntelliSwitchV1()) {
-        SetDevType(2);
-      }
-
       PostCPRefresh();
     }
   }

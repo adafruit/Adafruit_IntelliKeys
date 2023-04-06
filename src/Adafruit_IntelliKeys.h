@@ -54,13 +54,13 @@ public:
   void PostKey(int code, int direction, int delayAfter = 0);
   void PostLiftAllModifiers(void);
   void PostCPRefresh();
-
   void ProcessCommands();
-  void ProcessInput(uint8_t const *data, uint8_t len);
 
   void OnToggle(int newValue);
   void OnSwitch(int nswitch, int state);
   void OnSensorChange(int sensor, int value);
+  void StoreEEProm(uint8_t data, uint8_t add_lsb, uint8_t add_msb);
+  void ProcessInput(uint8_t const *data, uint8_t len);
 
   void SetLEDs(void);
   void SweepSound(int iStartFreq, int iEndFreq, int iDuration);
@@ -72,6 +72,8 @@ public:
   void SettleOverlay();
   void OnStdOverlayChange();
   void OverlayRecognitionFeedback();
+  bool HasStandardOverlay();
+  int GetDevType() { return 1; /* 1 is IntelliKeys */ }
 
   void ShortKeySound();
   void LongKeySound();
@@ -125,8 +127,6 @@ private:
   int m_lastCodeUp;
   bool m_bShifted;
 
-  int m_devType;
-
   IKModifier m_modShift;
   IKModifier m_modAlt;
   IKModifier m_modControl;
@@ -137,10 +137,6 @@ private:
   uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];
 
   bool Start(void);
-
-  bool IsIntelliSwitchV1(void);
-  void SetDevType(int devType) { m_devType = devType; }
-  void StoreEEProm(uint8_t data, uint8_t add_lsb, uint8_t add_msb);
 
   // ezusb
   bool ezusb_StartDevice(void);
