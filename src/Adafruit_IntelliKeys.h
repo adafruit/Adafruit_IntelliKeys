@@ -68,6 +68,16 @@ public:
   void ResetKeyboard(void);
   void ResetMouse(void);
 
+  void SetLevel(int level);
+  void SettleOverlay();
+  void OnStdOverlayChange();
+  void OverlayRecognitionFeedback();
+
+  void ShortKeySound();
+  void LongKeySound();
+  void KeySound(int msLength);
+  void KeySoundVol(int msLength, int volume = -1);
+
   void Periodic(void);
 
   void hid_reprot_received_cb(uint8_t dev_addr, uint8_t instance,
@@ -77,6 +87,9 @@ private:
   uint8_t _daddr;
   uint8_t _opened;
   uint32_t _expected_resp; // number of commands without response
+
+  int m_currentLevel;
+  int m_newLevel;
 
   uint32_t m_lastLEDTime;
   uint32_t m_delayUntil;

@@ -126,6 +126,9 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   m_delayUntil = 0;
   m_nextCorrect = 0;
 
+  m_newLevel = 0;
+  m_currentLevel = 0;
+
   m_lastOverlay = -1;
   m_lastOverlayTime = 0;
   m_currentOverlay = -1;
@@ -200,6 +203,15 @@ void Adafruit_IntelliKeys::Periodic(void) {
   if (!IsOpen()) {
     return; // nothing to do
   }
+
+  // settle overlay
+  SettleOverlay();
+
+  //  if (m_firmwareVersionMajor == 0)
+  //  {
+  //    uint8_t command[IK_REPORT_LEN] = {IK_CMD_GET_VERSION,0,0,0,0,0,0,0};
+  //    PostCommand(command);
+  //  }
 
   uint32_t now = millis();
 
@@ -344,7 +356,7 @@ bool Adafruit_IntelliKeys::PostCommand(uint8_t *command) {
       IK_PRINTF("PostCommand: invalid cmd %d\r\n", cmd_id);
       return false;
     }
-    IK_PRINTF("PostCommand: %s\r\n", ik_cmd_str[cmd_id]);
+    // IK_PRINTF("PostCommand: %s\r\n", ik_cmd_str[cmd_id]);
 
     // queue command sent to device
     if (!tu_fifo_write(&_cmd_ff, command)) {
@@ -352,11 +364,11 @@ bool Adafruit_IntelliKeys::PostCommand(uint8_t *command) {
                 "increase IK_CMD_FIFO_SIZE\n");
     }
   } else {
+    // local driver command
     if (cmd_id > IK_CMD_CP_REPORT_REALTIME) {
       IK_PRINTF("PostCommand (local): invalid cmd %d\r\n", cmd_id);
       return false;
     } else {
-      // local driver command
       IK_PRINTF("PostCommand (local): %s\r\n",
                 ik_cmd_local_str[cmd_id - COMMAND_BASE]);
 
@@ -561,12 +573,15 @@ void Adafruit_IntelliKeys::OnSensorChange(int sensor, int value) {
 
 void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
   uint8_t const event_id = data[0];
-  IK_PRINTF("Event: %s: ", ik_event_str[event_id - EVENT_BASE]);
 #if IK_DEBUG
-  for (uint8_t i = 0; i < len; i++) {
-    IK_PRINTF("%02x ", data[i]);
+  // skip print sensor change since it is a lot
+  if (event_id != IK_EVENT_SENSOR_CHANGE) {
+    IK_PRINTF("Event: %s: ", ik_event_str[event_id - EVENT_BASE]);
+    for (uint8_t i = 0; i < len; i++) {
+      IK_PRINTF("%02x ", data[i]);
+    }
+    IK_PRINTF("\n");
   }
-  IK_PRINTF("\n");
 #endif
 
   switch (event_id) {
@@ -703,6 +718,118 @@ void Adafruit_IntelliKeys::ResetMouse(void) {
   PostCommand(msg2);
 }
 
+void Adafruit_IntelliKeys::OnStdOverlayChange() {
+  ResetKeyboard();
+  ResetMouse();
+  PostLiftAllModifiers();
+  // SetLevel(1);
+
+#if 0
+  if (DATAI(TEXT("Reload_Standard_Overlay_When_Recognized"),0)==1)
+  {
+    IKEngine::GetEngine()->LoadStandardOverlays();
+  }
+#endif
+
+  LongKeySound();
+  OverlayRecognitionFeedback();
+
+  //  tell the CP
+  PostCPRefresh();
+
+  // tell raw mode
+#if 0
+  bool bRaw = IKEngine::GetEngine()->GetRawMode();
+  if (bRaw) {
+    uint32_t time = millis();
+    queueEntry qe;
+    qe.buffer[0] = 3;   //  event type
+
+    if (m_currentOverlay == 7) {
+      qe.buffer[1] = 0;    //  overlay number
+    }
+    else {
+      qe.buffer[1] = m_currentOverlay + 1;    //  overlay number
+    }
+
+    qe.buffer[2] = 0;    //  unused
+    qe.buffer[3] = 0;    //  unused
+    *((unsigned int *)&(qe.buffer[4])) = time;
+    m_rawQueue.enqueue(qe);
+  }
+#endif
+}
+
+void Adafruit_IntelliKeys::OverlayRecognitionFeedback() {
+  // PostMonitorState(false);
+
+  int delay = 300;
+
+  if (IsSwitchedOn()) {
+    PostSetLED(1, true);
+    PostSetLED(4, true);
+    PostSetLED(7, true);
+    PostDelay(delay);
+    PostSetLED(1, false);
+    PostSetLED(4, false);
+    PostSetLED(7, false);
+
+    PostSetLED(2, true);
+    PostSetLED(5, true);
+    PostSetLED(8, true);
+    PostDelay(delay);
+    PostSetLED(2, false);
+    PostSetLED(5, false);
+    PostSetLED(8, false);
+
+    PostSetLED(3, true);
+    PostSetLED(6, true);
+    PostSetLED(9, true);
+    PostDelay(delay);
+    PostSetLED(3, false);
+    PostSetLED(6, false);
+    PostSetLED(9, false);
+  } else {
+    for (int numFlashes = 0; numFlashes < 6; numFlashes++) {
+      PostSetLED(2, true);
+      PostSetLED(5, true);
+      PostSetLED(8, true);
+      PostDelay(delay);
+      // PostLedReconcile();
+
+      PostDelay(delay);
+
+      PostSetLED(2, false);
+      PostSetLED(5, false);
+      PostSetLED(8, false);
+      PostDelay(delay);
+      // PostLedReconcile();
+
+      PostDelay(delay);
+    }
+  }
+
+  // PostMonitorState(true);
+
+  // PostLedReconcile();
+}
+
+void Adafruit_IntelliKeys::SetLevel(int level) { m_currentLevel = level; }
+
+void Adafruit_IntelliKeys::SettleOverlay() {
+  uint32_t now = millis();
+
+  //  settle overlay
+  if (m_lastOverlay != m_currentOverlay && now > m_lastOverlayTime + 1000) {
+    m_currentOverlay = m_lastOverlay;
+    IK_PRINTF("Settled on overlay %d\n", m_currentOverlay);
+
+    SetLevel(1);
+
+    OnStdOverlayChange();
+  }
+}
+
 bool Adafruit_IntelliKeys::IsIntelliSwitchV1() {
   if (m_eepromData.serialnumber[0] != 'C') {
     return false;
@@ -719,6 +846,28 @@ bool Adafruit_IntelliKeys::IsIntelliSwitchV1() {
   }
 
   return true;
+}
+
+void Adafruit_IntelliKeys::ShortKeySound() { KeySound(50); }
+
+void Adafruit_IntelliKeys::LongKeySound() { KeySound(700); }
+
+void Adafruit_IntelliKeys::KeySound(int msLength) {
+  KeySoundVol(msLength, IKSettings::GetSettings()->m_iKeySoundVolume);
+}
+
+void Adafruit_IntelliKeys::KeySoundVol(int msLength, int vol) {
+  int myVol = vol;
+  if (vol == -1) {
+    myVol = IKSettings::GetSettings()->m_iKeySoundVolume;
+  }
+
+  //  set parameters and blow
+  uint8_t report[IK_REPORT_LEN] = {IK_CMD_TONE, 0, 0, 0, 0, 0, 0, 0};
+  report[1] = 247;
+  report[2] = myVol;
+  report[3] = msLength / 10;
+  PostCommand(report);
 }
 
 void Adafruit_IntelliKeys::StoreEEProm(uint8_t data, uint8_t add_lsb,
@@ -776,6 +925,8 @@ void Adafruit_IntelliKeys::hid_reprot_received_cb(uint8_t daddr, uint8_t idx,
   }
 
   ProcessInput(report, len);
+
+#if 0
   if (_expected_resp) {
     _expected_resp--;
     if (!tuh_hid_receive_report(daddr, idx)) {
@@ -784,6 +935,12 @@ void Adafruit_IntelliKeys::hid_reprot_received_cb(uint8_t daddr, uint8_t idx,
       return;
     }
   }
+#else
+  if (!tuh_hid_receive_report(daddr, idx)) {
+    IK_PRINTF("Failed to receive report\n");
+    return;
+  }
+#endif
 }
 
 //--------------------------------------------------------------------+
