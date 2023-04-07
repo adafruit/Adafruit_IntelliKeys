@@ -84,8 +84,7 @@ public:
 
   int GetLevel();
   void SetLevel(int level);
-  IKOverlay *GetCurrentOverlay();
-  IKOverlay *GetStandardOverlay(int index);
+  int GetCurrentOverlayNumber() { return m_currentOverlay; }
   void SettleOverlay();
   void OnStdOverlayChange();
   void OverlayRecognitionFeedback();
@@ -96,10 +95,6 @@ public:
   void LongKeySound();
   void KeySound(int msLength);
   void KeySoundVol(int msLength, int volume = -1);
-
-  void FindDomain(IKOverlay *pOverlay, int *domainNumber, bool *bPressAnywhere,
-                  int *switchNumber);
-  void Interpret();
   void InterpretRaw();
 
   void Periodic(void);
@@ -110,7 +105,6 @@ public:
 private:
   uint8_t _daddr;
   uint8_t _opened;
-  uint32_t _expected_resp; // number of commands without response
 
   int m_currentLevel;
   int m_newLevel;
