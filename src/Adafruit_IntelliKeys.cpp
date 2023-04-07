@@ -40,6 +40,7 @@
 #define IK_PID_RUNNING 0x0101 // Firmware running
 
 #if IK_DEBUG
+
 #define IK_PRINTF(...) Serial.printf(__VA_ARGS__)
 
 const char *const ik_cmd_str[] = {
@@ -113,6 +114,12 @@ const char *const ik_event_str[] = {
 #define IK_PRINTF(...)
 #endif
 
+#if IK_DEBUG >= 2
+#define IK_PRINTF2 IK_PRINTF
+#else
+#define IK_PRINTF2(...)
+#endif
+
 //--------------------------------------------------------------------+
 // Public API
 //--------------------------------------------------------------------+
@@ -140,6 +147,16 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
     }
   }
 
+  for (int col = 0; col < IK_RESOLUTION_X; col++) {
+    for (int row = 0; row < IK_RESOLUTION_Y; row++) {
+      m_last_membrane[row][col] = 0;
+    }
+  }
+
+  for (int nsw = 0; nsw < IK_NUM_SWITCHES; nsw++) {
+    m_last_switches[nsw] = 0;
+  }
+
   m_bEepromValid = false;
 
   m_firmwareVersionMajor = 0;
@@ -160,6 +177,9 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   for (unsigned int i4 = 0; i4 < sizeof(m_MouseReport); i4++) {
     m_MouseReport[i4] = 0;
   }
+
+  _membrane_cb = NULL;
+  _switch_cb = NULL;
 
   tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
   tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
@@ -207,6 +227,13 @@ void Adafruit_IntelliKeys::umount(uint8_t daddr) {
   }
 }
 
+void Adafruit_IntelliKeys::onMemBraneChanged(membrane_callback_t func) {
+  _membrane_cb = func;
+}
+void Adafruit_IntelliKeys::onSwitchChanged(switch_callback_t func) {
+  _switch_cb = func;
+}
+
 void Adafruit_IntelliKeys::Periodic(void) {
   if (!IsOpen()) {
     return; // nothing to do
@@ -247,129 +274,39 @@ void Adafruit_IntelliKeys::Periodic(void) {
 }
 
 void Adafruit_IntelliKeys::InterpretRaw() {
-#if 0
   //  don't bother if we're not connected and switched on
-  if (!IsOpen())
+  if (!IsOpen()) {
     return;
-  if (!IsSwitchedOn())
+  }
+  if (!IsSwitchedOn()) {
     return;
-
-  int col,row,nsw;
-
-  if (!m_bLastInit)
-  {
-    m_bLastInit = true;
-    for (col=0;col<IK_RESOLUTION_X;col++)
-      for (row=0;row<IK_RESOLUTION_Y;row++)
-        m_last_membrane[row][col] = 0;
-    for (nsw=0;nsw<IK_NUM_SWITCHES;nsw++)
-      m_last_switches[nsw] = 0;
-
   }
 
-  unsigned int time = IKUtil::GetCurrentTimeMS();
+  unsigned int time = millis();
 
-  bool bChange = false;
-
-  //  look for membrane releases
-  for (col=0;col<IK_RESOLUTION_X;col++)
-    for (row=0;row<IK_RESOLUTION_Y;row++)
-      if (m_membrane[row][col]==0 && m_last_membrane[row][col]!=0)
-      {
-        if ( IKEngine::GetEngine()->GetNotifyMode() )
-        {
-          RawNotify ( 2, row, col, time );
+  //  look for membrane change
+  for (uint8_t col = 0; col < IK_RESOLUTION_X; col++) {
+    for (uint8_t row = 0; row < IK_RESOLUTION_Y; row++) {
+      if (m_membrane[row][col] != m_last_membrane[row][col]) {
+        if (_membrane_cb) {
+          _membrane_cb(row, col, m_membrane[row][col]);
         }
-        else
-        {
-          //  release row and col
-          queueEntry qe;
-          qe.buffer[0] = 1;	 //  event type
-          qe.buffer[1] = 0;    //  release
-          qe.buffer[2] = row;  //  row
-          qe.buffer[3] = col;  //  col
-          *((unsigned int *)&(qe.buffer[4])) = time;
-          m_rawQueue.enqueue(qe);
-          bChange = true;
-        }
-      }
-
-  //  look for switch releases
-  for (nsw=0;nsw<IK_NUM_SWITCHES;nsw++)
-    if (m_switches[nsw]==0 && m_last_switches[nsw]!=0)
-    {
-      //  release switch
-      if ( IKEngine::GetEngine()->GetNotifyMode() )
-      {
-        RawNotify ( 4, nsw, 0, time );
-      }
-      else
-      {
-        queueEntry qe;
-        qe.buffer[0] = 2;		//  event type
-        qe.buffer[1] = 0;		//  release
-        qe.buffer[2] = nsw;		//  switch number
-        qe.buffer[3] = 0;		//  unused
-        *((unsigned int *)&(qe.buffer[4])) = time;
-        m_rawQueue.enqueue(qe);
-        bChange = true;
+        //  save current state for next time
+        m_last_membrane[row][col] = m_membrane[row][col];
       }
     }
+  }
 
-  //  look for membrane presses
-  for (col=0;col<IK_RESOLUTION_X;col++)
-    for (row=0;row<IK_RESOLUTION_Y;row++)
-      if (m_membrane[row][col]!=0 && m_last_membrane[row][col]==0)
-      {
-        if ( IKEngine::GetEngine()->GetNotifyMode() )
-        {
-          RawNotify ( 1, row, col, time );
-        }
-        else
-        {
-          //  press row and col
-          queueEntry qe;
-          qe.buffer[0] = 1;	 //  event type
-          qe.buffer[1] = 1;    //  press
-          qe.buffer[2] = row;  //  row
-          qe.buffer[3] = col;  //  col
-          *((unsigned int *)&(qe.buffer[4])) = time;
-          m_rawQueue.enqueue(qe);
-          bChange = true;
-        }
+  //  look for switch change
+  for (uint8_t nsw = 0; nsw < IK_NUM_SWITCHES; nsw++) {
+    if (m_switches[nsw] != m_last_switches[nsw]) {
+      if (_switch_cb) {
+        _switch_cb(nsw, m_switches[nsw]);
       }
-
-  //  look for switch presses
-  for (nsw=0;nsw<IK_NUM_SWITCHES;nsw++)
-    if (m_switches[nsw]!=0 && m_last_switches[nsw]==0)
-    {
-      //  press switch
-      if ( IKEngine::GetEngine()->GetNotifyMode() )
-      {
-        RawNotify ( 3, nsw, 0, time );
-      }
-      else
-      {
-        queueEntry qe;
-        qe.buffer[0] = 2;		//  event type
-        qe.buffer[1] = 1;		//  press
-        qe.buffer[2] = nsw;		//  switch number
-        qe.buffer[3] = 0;		//  unused
-        *((unsigned int *)&(qe.buffer[4])) = time;
-        m_rawQueue.enqueue(qe);
-        bChange = true;
-      }
+      //  save current state for next time
+      m_last_switches[nsw] = m_switches[nsw];
     }
-
-  //  save current state for next time
-
-  for (col=0;col<IK_RESOLUTION_X;col++)
-    for (row=0;row<IK_RESOLUTION_Y;row++)
-      m_last_membrane[row][col] = m_membrane[row][col];
-
-  for (nsw=0;nsw<IK_NUM_SWITCHES;nsw++)
-    m_last_switches[nsw] = m_switches[nsw];
-#endif
+  }
 }
 
 //--------------------------------------------------------------------+
@@ -495,7 +432,7 @@ void Adafruit_IntelliKeys::ProcessCommands() {
     if (cmd_id > IK_CMD_REFLECT_MOUSE_MOVE) {
       IK_PRINTF("ProcessCommand: invalid cmd %d\r\n", cmd_id);
     } else {
-      IK_PRINTF("ProcessCommand: %s\r\n", ik_cmd_str[cmd_id]);
+      IK_PRINTF2("ProcessCommand: %s\r\n", ik_cmd_str[cmd_id]);
     }
 
     // blocking until report is sent
@@ -739,11 +676,11 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
 #if IK_DEBUG
   // skip print sensor change since it is a lot
   if (event_id != IK_EVENT_SENSOR_CHANGE) {
-    IK_PRINTF("Event: %s: ", ik_event_str[event_id - EVENT_BASE]);
+    IK_PRINTF2("Event: %s: ", ik_event_str[event_id - EVENT_BASE]);
     for (uint8_t i = 0; i < len; i++) {
-      IK_PRINTF("%02x ", data[i]);
+      IK_PRINTF2("%02x ", data[i]);
     }
-    IK_PRINTF("\n");
+    IK_PRINTF2("\n");
   }
 #endif
 

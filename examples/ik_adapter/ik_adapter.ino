@@ -72,17 +72,27 @@ void setup() {
 
   // while ( !Serial ) delay(10);   // wait for native usb
 
-  Serial.println("TinyUSB Host HID Remap Example");
+  Serial.println("IntelliKeys USB Adapter");
 }
 
-void loop() {}
+void loop() { Serial.flush(); }
 
 //--------------------------------------------------------------------+
 // Setup and Loop on Core1
 //--------------------------------------------------------------------+
 
+void onMembraneChanged(uint8_t row, uint8_t col, uint8_t state) {
+  Serial.printf("Membrane [0x%02x, 0x%02x] = %u\r\n", row, col, state);
+}
+
+void onSwitchChanged(uint8_t sw, uint8_t state) {
+  Serial.printf("Switch 0x%02x = %u\r\n", sw, state);
+}
+
 void setup1() {
   IKeys.begin();
+  IKeys.onMemBraneChanged(onMembraneChanged);
+  IKeys.onSwitchChanged(onSwitchChanged);
 
   while (!Serial) {
     delay(10); // wait for native usb

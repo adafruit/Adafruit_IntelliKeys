@@ -41,11 +41,18 @@
 
 class Adafruit_IntelliKeys {
 public:
+  typedef void (*membrane_callback_t)(uint8_t row, uint8_t col, uint8_t state);
+  typedef void (*switch_callback_t)(uint8_t sw, uint8_t state);
+
   Adafruit_IntelliKeys(void);
 
   void begin(void);
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
+
+  // callback
+  void onMemBraneChanged(membrane_callback_t func);
+  void onSwitchChanged(switch_callback_t func);
 
   // Function named following IKDevice in OpenIKeys
   bool IsOpen(void) { return _opened; }
@@ -85,10 +92,10 @@ public:
   int GetLevel();
   void SetLevel(int level);
   int GetCurrentOverlayNumber() { return m_currentOverlay; }
+  bool HasStandardOverlay();
   void SettleOverlay();
   void OnStdOverlayChange();
   void OverlayRecognitionFeedback();
-  bool HasStandardOverlay();
   int GetDevType() { return 1; /* 1 is IntelliKeys */ }
 
   void ShortKeySound();
@@ -133,8 +140,11 @@ private:
   bool m_bEepromValid;
 
   //  for correction
-  uint8_t m_membranePressedInCorrectMode[IK_RESOLUTION_X][IK_RESOLUTION_X];
+  uint8_t m_membranePressedInCorrectMode[IK_RESOLUTION_X][IK_RESOLUTION_Y];
   uint8_t m_switchesPressedInCorrectMode[IK_NUM_SWITCHES];
+
+  uint8_t m_last_membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
+  uint8_t m_last_switches[IK_NUM_SWITCHES];
 
   int m_membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
 
@@ -155,6 +165,9 @@ private:
   tu_fifo_t _cmd_ff;
   OSAL_MUTEX_DEF(_cmd_ff_mutex);
   uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];
+
+  membrane_callback_t _membrane_cb;
+  switch_callback_t _switch_cb;
 
   bool Start(void);
   void Reset(void);
