@@ -69,6 +69,7 @@ public:
   IKOverlay();
   static void initStdAlphabet(void);
   static void initStdBasicWriting(void);
+  static void initStdMathAccess(void);
 
   static void initStandardOverlays(void);
 
