@@ -34,7 +34,7 @@
 // MACRO TYPEDEF CONSTANT ENUM DECLARATION
 //--------------------------------------------------------------------+
 
-#define IK_DEBUG 2
+#define IK_DEBUG 1
 #define IK_VID 0x095e
 #define IK_PID_FWLOAD 0x0100  // Firmware load required
 #define IK_PID_RUNNING 0x0101 // Firmware running
@@ -150,21 +150,7 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   m_firmwareVersionMajor = 0;
   m_firmwareVersionMinor = 0;
 
-  m_lastExecuted = NULL;
-
   m_lastSwitch = 0;
-
-  for (int i2 = 0; i2 < 5; i2++) {
-    m_last5Overlays[i2] = -1;
-  }
-
-  for (unsigned int i3 = 0; i3 < sizeof(m_KeyBoardReport); i3++) {
-    m_KeyBoardReport[i3] = 0;
-  }
-
-  for (unsigned int i4 = 0; i4 < sizeof(m_MouseReport); i4++) {
-    m_MouseReport[i4] = 0;
-  }
 
   _membrane_cb = NULL;
   _switch_cb = NULL;
@@ -764,40 +750,13 @@ void Adafruit_IntelliKeys::PostCPRefresh() {
 }
 
 void Adafruit_IntelliKeys::ResetKeyboard(void) {
-  m_lastExecuted = NULL;
-
-  for (int i2 = 0; i2 < 5; i2++) {
-    m_last5Overlays[i2] = -1;
-  }
-
   //  reset keyboard
-  for (unsigned int i = 0; i < sizeof(m_KeyBoardReport); i++) {
-    m_KeyBoardReport[i] = 0;
-  }
-
-  uint8_t msg[IK_REPORT_LEN] = {IK_CMD_REFLECT_KEYSTROKE, 0, 0, 0, 0, 0, 0, 0};
-  for (unsigned int j = 0; j < sizeof(m_KeyBoardReport); j++) {
-    msg[j + 1] = m_KeyBoardReport[j];
-  }
-
-  PostCommand(msg);
-
   //  reconcile with modifier objects?
   PostLiftAllModifiers();
 }
 
 void Adafruit_IntelliKeys::ResetMouse(void) {
   //  reset mouse
-  for (unsigned int i = 0; i < sizeof(m_MouseReport); i++) {
-    m_MouseReport[i] = 0;
-  }
-
-  uint8_t msg2[] = {IK_CMD_REFLECT_MOUSE_MOVE, 0, 0, 0, 0, 0, 0, 0};
-  for (unsigned int j = 0; j < sizeof(m_MouseReport); j++) {
-    msg2[j + 1] = m_MouseReport[j];
-  }
-
-  PostCommand(msg2);
 }
 
 void Adafruit_IntelliKeys::OnStdOverlayChange() {

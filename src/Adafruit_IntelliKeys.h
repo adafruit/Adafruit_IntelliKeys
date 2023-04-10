@@ -54,6 +54,8 @@ public:
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
+  void Periodic(void);
+
   void onMemBraneChanged(membrane_callback_t func);
   void onSwitchChanged(switch_callback_t func);
 
@@ -113,8 +115,6 @@ public:
   void KeySoundVol(int msLength, int volume = -1);
   void InterpretRaw();
 
-  void Periodic(void);
-
   void hid_reprot_received_cb(uint8_t dev_addr, uint8_t instance,
                               uint8_t const *report, uint16_t len);
 
@@ -129,8 +129,6 @@ private:
   uint32_t m_delayUntil;
   uint32_t m_nextCorrect;
 
-  uint8_t m_KeyBoardReport[7];
-  uint8_t m_MouseReport[3];
   int m_toggle; // on/off switch
   int m_sensors[IK_NUM_SENSORS];
 
@@ -159,9 +157,6 @@ private:
 
   uint8_t m_firmwareVersionMajor;
   uint8_t m_firmwareVersionMinor;
-
-  uint8_t *m_lastExecuted;
-  int m_last5Overlays[5];
 
   int m_lastCodeUp;
   bool m_bShifted;

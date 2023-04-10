@@ -64,8 +64,10 @@ enum IK_LEDS {
 #define JWH 1
 
 #if JWH
-#define IK_CMD_REFLECT_KEYSTROKE (CMD_BASE + 21)
-#define IK_CMD_REFLECT_MOUSE_MOVE (CMD_BASE + 22)
+#define IK_CMD_REFLECT_KEYSTROKE                                               \
+  (CMD_BASE + 21) // send keystroke to host via ezusb
+#define IK_CMD_REFLECT_MOUSE_MOVE                                              \
+  (CMD_BASE + 22) // send mouse move to host via ezusb
 #endif
 
 #define IK_CMD_GET_SN CMD_BASE + 40
