@@ -67,6 +67,8 @@ typedef struct __attribute__((packed)) {
 class IKOverlay {
 public:
   IKOverlay();
+  static void initStdAlphabet(void);
+  static void initStdBasicWriting(void);
 
   static void initStandardOverlays(void);
 
