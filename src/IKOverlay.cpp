@@ -25,7 +25,7 @@
 #include "IKOverlay.h"
 #include "class/hid/hid.h"
 
-#define IK_DEBUG 1
+#define IK_DEBUG 0
 
 #if IK_DEBUG
 #include <Arduino.h>
