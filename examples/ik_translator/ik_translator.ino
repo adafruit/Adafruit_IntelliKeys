@@ -37,12 +37,12 @@
 
 // Pin D+ for host, D- = D+ + 1
 #ifndef PIN_PIO_USB_HOST_DP
-#define PIN_PIO_USB_HOST_DP 20
+#define PIN_PIO_USB_HOST_DP 16 // 20
 #endif
 
 // Pin for enabling Host VBUS. comment out if not used
 #ifndef PIN_PIO_USB_HOST_VBUSEN
-#define PIN_PIO_USB_HOST_VBUSEN 22
+#define PIN_PIO_USB_HOST_VBUSEN 18 // 22
 #endif
 #ifndef PIN_PIO_USB_HOST_VBUSEN_STATE
 #define PIN_PIO_USB_HOST_VBUSEN_STATE 1
@@ -179,9 +179,9 @@ void loop() {
 void setup1() {
   IKeys.begin();
 
-  while (!Serial) {
-    delay(10); // wait for native usb
-  }
+  //  while (!Serial) {
+  //    delay(10); // wait for native usb
+  //  }
   Serial.println("Core1 setup to run TinyUSB host with pio-usb");
 
   // Check for CPU frequency, must be multiple of 120Mhz for bit-banging USB
