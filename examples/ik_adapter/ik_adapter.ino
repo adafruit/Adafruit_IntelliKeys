@@ -53,14 +53,16 @@ Adafruit_USBH_Host USBHost;
 
 Adafruit_IntelliKeys IKeys;
 
-// HID report descriptor using TinyUSB's template
+// HID report descriptor for keyboard and mouse
 // Single Report (no ID) descriptor
-uint8_t const desc_hid_report[] = {TUD_HID_REPORT_DESC_KEYBOARD()};
+uint8_t const desc_keyboard_report[] = {TUD_HID_REPORT_DESC_KEYBOARD()};
+// uint8_t const desc_mouse_report[] = {TUD_HID_REPORT_DESC_MOUSE()};
 
 // USB HID object. For ESP32 these values cannot be changed after this
 // declaration desc report, desc len, protocol, interval, use out endpoint
-Adafruit_USBD_HID usb_hid(desc_hid_report, sizeof(desc_hid_report),
-                          HID_ITF_PROTOCOL_KEYBOARD, 2, false);
+Adafruit_USBD_HID usb_keyboard(desc_keyboard_report,
+                               sizeof(desc_keyboard_report),
+                               HID_ITF_PROTOCOL_KEYBOARD, 2, false);
 
 //--------------------------------------------------------------------+
 // Setup and Loop on Core0
@@ -68,31 +70,113 @@ Adafruit_USBD_HID usb_hid(desc_hid_report, sizeof(desc_hid_report),
 
 void setup() {
   Serial.begin(115200);
-  // usb_hid.begin();
+  usb_keyboard.begin();
 
   // while ( !Serial ) delay(10);   // wait for native usb
 
   Serial.println("IntelliKeys USB Adapter");
 }
 
-void loop() { Serial.flush(); }
+bool checkNewKeyboardReport(hid_keyboard_report_t const *report,
+                            uint8_t modifier, uint8_t keycode) {
+  if (modifier != 0 && !(report->modifier & modifier)) {
+    return true;
+  }
+
+  for (uint8_t i = 0; i < 6; i++) {
+    if (keycode == report->keycode[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void scanMembraneAndSwitch(void) {
+  static hid_keyboard_report_t prev_report = {0};
+  static bool has_report = false;
+
+  if (!IKeys.IsOpen()) {
+    return;
+  }
+
+  IKOverlay *overlay;
+  if (IKeys.HasStandardOverlay()) {
+    overlay = IKeys.GetCurrentOverlay();
+  } else {
+    // not support non-std overlay yet
+    return;
+  }
+
+  hid_keyboard_report_t report = {0};
+  uint8_t(*mb)[IK_RESOLUTION_Y] = IKeys.getMembrane();
+  uint8_t count = 0;
+
+  // scan membrane
+  for (uint8_t i = 0; i < IK_RESOLUTION_X; i++) {
+    for (uint8_t j = 0; j < IK_RESOLUTION_Y; j++) {
+      if (mb[i][j] == 1) {
+        ik_report_t ik_report;
+        overlay->getMembraneReport(i, j, &ik_report);
+
+        if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
+          Serial.printf(
+              "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
+              ik_report.keyboard.modifier, ik_report.keyboard.keycode);
+          if (checkNewKeyboardReport(&report, ik_report.keyboard.modifier,
+                                     ik_report.keyboard.keycode)) {
+            report.modifier |= ik_report.keyboard.modifier;
+            report.keycode[count] = ik_report.keyboard.keycode;
+            count++;
+          }
+        } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
+          // not support mouse yet
+        }
+
+        if (count >= 6) {
+          break;
+        }
+      }
+    }
+  }
+
+  // TODO scan switch
+  if (count) {
+    // send only if report is changed since last time
+    if (memcmp(&prev_report, &report, sizeof(report))) {
+      usb_keyboard.sendReport(0, &report, sizeof(report));
+    }
+    has_report = true;
+  } else {
+    if (has_report) {
+      // has report before, send empty report to release all keys
+      hid_keyboard_report_t null_report = {0};
+      usb_keyboard.sendReport(0, &null_report, sizeof(null_report));
+    }
+    has_report = false;
+  }
+
+  prev_report = report;
+}
+
+void loop() {
+  static uint32_t ms = 0;
+
+  // scan every 10 ms
+  if (millis() - ms > 10) {
+    ms = millis();
+    scanMembraneAndSwitch();
+  }
+
+  Serial.flush();
+}
 
 //--------------------------------------------------------------------+
 // Setup and Loop on Core1
 //--------------------------------------------------------------------+
 
-void onMembraneChanged(uint8_t row, uint8_t col, uint8_t state) {
-  Serial.printf("Membrane [0x%02x, 0x%02x] = %u\r\n", row, col, state);
-}
-
-void onSwitchChanged(uint8_t sw, uint8_t state) {
-  Serial.printf("Switch 0x%02x = %u\r\n", sw, state);
-}
-
 void setup1() {
   IKeys.begin();
-  IKeys.onMemBraneChanged(onMembraneChanged);
-  IKeys.onSwitchChanged(onSwitchChanged);
 
   while (!Serial) {
     delay(10); // wait for native usb

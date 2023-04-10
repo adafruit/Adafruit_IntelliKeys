@@ -46,15 +46,23 @@ public:
 
   Adafruit_IntelliKeys(void);
 
+  //--------------------------------------------------------------------+
+  // Arduino API
+  //--------------------------------------------------------------------+
+
   void begin(void);
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
-  // callback
   void onMemBraneChanged(membrane_callback_t func);
   void onSwitchChanged(switch_callback_t func);
 
+  uint8_t (*getMembrane(void))[IK_RESOLUTION_Y] { return m_membrane; }
+
+  //--------------------------------------------------------------------+
   // Function named following IKDevice in OpenIKeys
+  //--------------------------------------------------------------------+
+
   bool IsOpen(void) { return _opened; }
   bool IsSwitchedOn(void) { return m_toggle == 1; }
   bool IsNumLockOn(void);
@@ -93,6 +101,7 @@ public:
   void SetLevel(int level);
   int GetCurrentOverlayNumber() { return m_currentOverlay; }
   bool HasStandardOverlay();
+  IKOverlay *GetCurrentOverlay();
   void SettleOverlay();
   void OnStdOverlayChange();
   void OverlayRecognitionFeedback();
@@ -123,7 +132,6 @@ private:
   uint8_t m_KeyBoardReport[7];
   uint8_t m_MouseReport[3];
   int m_toggle; // on/off switch
-  int m_switches[IK_NUM_SWITCHES];
   int m_sensors[IK_NUM_SENSORS];
 
   int m_lastSwitch;
@@ -146,7 +154,8 @@ private:
   uint8_t m_last_membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
   uint8_t m_last_switches[IK_NUM_SWITCHES];
 
-  int m_membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
+  uint8_t m_membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
+  uint8_t m_switches[IK_NUM_SWITCHES];
 
   uint8_t m_firmwareVersionMajor;
   uint8_t m_firmwareVersionMinor;

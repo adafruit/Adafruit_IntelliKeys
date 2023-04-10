@@ -25,10 +25,61 @@
 #ifndef ADAFRUIT_INTELLIKEYS_IKOVERLAY_H
 #define ADAFRUIT_INTELLIKEYS_IKOVERLAY_H
 
+#include "intellikeysdefs.h"
+
+/* The standard overlays
+Standard_Overlay_0_Name		Web Access USB Overlay
+Standard_Overlay_1_Name		Setup USB Overlay
+Standard_Overlay_2_Name		Math Access USB Overlay
+Standard_Overlay_3_Name		Alphabet USB Overlay
+Standard_Overlay_4_Name		Mouse Access USB Overlay
+Standard_Overlay_5_Name		QWERTY USB Overlay
+Standard_Overlay_6_Name		Basic Writing USB Overlay
+Standard_Overlay_7_Name		none
+*/
+
+#define IK_OVERLAY_WEB_ACCESS 0
+#define IK_OVERLAY_SETUP 1
+#define IK_OVERLAY_MATH_ACCESS 2
+#define IK_OVERLAY_ALPHABET 3
+#define IK_OVERLAY_MOUSE_ACCESS 4
+#define IK_OVERLAY_QWERTY 5
+#define IK_OVERLAY_BASIC_WRITING 6
+
+enum { IK_REPORT_TYPE_NONE = 0, IK_REPORT_TYPE_KEYBOARD, IK_REPORT_TYPE_MOUSE };
+
+typedef struct __attribute__((packed)) {
+  uint8_t type; // 0: for none, 1 for keyboard, 2 for mouse
+  union {
+    struct {
+      uint8_t buttons;
+      int8_t x;
+      int8_t y;
+    } mouse;
+
+    struct {
+      uint8_t modifier;
+      uint8_t keycode;
+    } keyboard;
+  };
+} ik_report_t;
+
 class IKOverlay {
 public:
-  int GetDomainFromSwitch(int nswitch, int level);
-  int GetDomainFromMembrane(int x, int y, int level);
+  IKOverlay();
+
+  static void initStandardOverlays(void);
+
+  void setMembraneReport(int top_row, int top_col, int btm_row, int btm_col,
+                         ik_report_t *report);
+
+  void getSwitchReport(int nswitch, ik_report_t *report);
+  void getMembraneReport(int row, int col, ik_report_t *report);
+
+private:
+  ik_report_t _membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
 };
+
+extern IKOverlay stdOverlays[7];
 
 #endif // ADAFRUIT_INTELLIKEYS_IKOVERLAY_H

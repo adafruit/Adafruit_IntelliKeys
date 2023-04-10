@@ -3,6 +3,10 @@
 #ifndef _INTELLIKEYSDEFS_H_
 #define _INTELLIKEYSDEFS_H_
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+
 enum IK_LEDS {
   IK_LED_SHIFT = 1,
   IK_LED_CAPS_LOCK = 4,

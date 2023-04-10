@@ -34,7 +34,7 @@
 // MACRO TYPEDEF CONSTANT ENUM DECLARATION
 //--------------------------------------------------------------------+
 
-#define IK_DEBUG 1
+#define IK_DEBUG 2
 #define IK_VID 0x095e
 #define IK_PID_FWLOAD 0x0100  // Firmware load required
 #define IK_PID_RUNNING 0x0101 // Firmware running
@@ -141,21 +141,9 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
 
   m_toggle = -1;
 
-  for (int x = 0; x < IK_RESOLUTION_X; x++) {
-    for (int y = 0; y < IK_RESOLUTION_Y; y++) {
-      m_membrane[y][x] = 0;
-    }
-  }
-
-  for (int col = 0; col < IK_RESOLUTION_X; col++) {
-    for (int row = 0; row < IK_RESOLUTION_Y; row++) {
-      m_last_membrane[row][col] = 0;
-    }
-  }
-
-  for (int nsw = 0; nsw < IK_NUM_SWITCHES; nsw++) {
-    m_last_switches[nsw] = 0;
-  }
+  memset(m_membrane, 0, sizeof(m_membrane));
+  memset(m_last_membrane, 0, sizeof(m_last_membrane));
+  memset(m_switches, 0, sizeof(m_switches));
 
   m_bEepromValid = false;
 
@@ -183,11 +171,13 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
 
   tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
   tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
+
+  //
 }
 
 void Adafruit_IntelliKeys::Reset(void) {}
 
-void Adafruit_IntelliKeys::begin(void) {}
+void Adafruit_IntelliKeys::begin(void) { IKOverlay::initStandardOverlays(); }
 
 bool Adafruit_IntelliKeys::mount(uint8_t daddr) {
   uint16_t vid, pid;
@@ -252,7 +242,7 @@ void Adafruit_IntelliKeys::Periodic(void) {
 
   //  request a correction every so often.
   if (now > m_nextCorrect) {
-    // DoCorrect();
+    DoCorrect();
     m_nextCorrect = now + 500;
   }
 
@@ -282,16 +272,16 @@ void Adafruit_IntelliKeys::InterpretRaw() {
     return;
   }
 
-  unsigned int time = millis();
-
-  //  look for membrane change
+  //  look for _membrane change
   for (uint8_t col = 0; col < IK_RESOLUTION_X; col++) {
     for (uint8_t row = 0; row < IK_RESOLUTION_Y; row++) {
       if (m_membrane[row][col] != m_last_membrane[row][col]) {
+        IK_PRINTF("Membrane [%02u, %02u] = %u\r\n", row, col,
+                  m_membrane[row][col]);
         if (_membrane_cb) {
           _membrane_cb(row, col, m_membrane[row][col]);
         }
-        //  save current state for next time
+        // save current state for next time
         m_last_membrane[row][col] = m_membrane[row][col];
       }
     }
@@ -300,10 +290,11 @@ void Adafruit_IntelliKeys::InterpretRaw() {
   //  look for switch change
   for (uint8_t nsw = 0; nsw < IK_NUM_SWITCHES; nsw++) {
     if (m_switches[nsw] != m_last_switches[nsw]) {
+      IK_PRINTF("Switch %02u = %u\r\n", nsw, m_switches[nsw]);
       if (_switch_cb) {
         _switch_cb(nsw, m_switches[nsw]);
       }
-      //  save current state for next time
+      // save current state for next time
       m_last_switches[nsw] = m_switches[nsw];
     }
   }
@@ -857,6 +848,10 @@ bool Adafruit_IntelliKeys::HasStandardOverlay() {
   }
 
   return (m_currentOverlay != 7 && m_currentOverlay != -1);
+}
+
+IKOverlay *Adafruit_IntelliKeys::GetCurrentOverlay() {
+  return &stdOverlays[m_currentOverlay];
 }
 
 void Adafruit_IntelliKeys::OverlayRecognitionFeedback() {
