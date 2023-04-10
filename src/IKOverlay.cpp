@@ -72,9 +72,13 @@ void IKOverlay::setMembraneReport(int top_row, int top_col, int height,
 void IKOverlay::initStandardOverlays(void) {
   initStdMathAccess();
   initStdAlphabet();
+  initStdQwerty();
   initStdBasicWriting();
 }
 
+//--------------------------------------------------------------------+
+// Math Access
+//--------------------------------------------------------------------+
 void IKOverlay::initStdMathAccess(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_MATH_ACCESS];
 
@@ -241,6 +245,9 @@ void IKOverlay::initStdMathAccess(void) {
   // TODO row 5 to 8 is Mouse
 }
 
+//--------------------------------------------------------------------+
+// Basic Writing
+//--------------------------------------------------------------------+
 void IKOverlay::initStdBasicWriting(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_BASIC_WRITING];
 
@@ -493,7 +500,181 @@ void IKOverlay::initStdBasicWriting(void) {
   overlay.setMembraneReport(row, col, height, width, &report);
 }
 
+//--------------------------------------------------------------------+
+// Qwerty Overlay
+//--------------------------------------------------------------------+
+void IKOverlay::initStdQwerty(void) {
+  IKOverlay &overlay = stdOverlays[IK_OVERLAY_QWERTY];
+
+  ik_report_t report;
+  report.type = IK_REPORT_TYPE_KEYBOARD;
+  report.keyboard.modifier = 0;
+
+  int col, row;
+  int height = 3;
+  int width = 2;
+
+  //------------- First Row -------------//
+  row = 0;
+  col = 0;
+
+  report.keyboard.keycode = HID_KEY_ESCAPE;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_TAB;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_GRAVE;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_NUM_LOCK;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = 0; // TODO what is NUMPAD ?
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_INSERT;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_HOME;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_END;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = 0; // TODO Smart Typing ?
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_PAGE_UP;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_PAGE_DOWN;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_DELETE;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  //------------- Second Row -------------//
+  row = 3;
+  col = 0;
+
+  report.keyboard.modifier = 0;
+  for (int i = 0; i < 12; i++) {
+    report.keyboard.keycode = HID_KEY_F1 + i;
+    overlay.setMembraneReport(row, col, height, width, &report);
+    col += width;
+  }
+
+  //------------- Third Row -------------//
+  row = 6;
+  col = 0;
+
+  report.keyboard.modifier = 0;
+  for (int i = 0; i < 10; i++) {
+    report.keyboard.keycode = HID_KEY_1 + i;
+    overlay.setMembraneReport(row, col, height, width, &report);
+    col += width;
+  }
+
+  report.keyboard.keycode = HID_KEY_MINUS;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.keycode = HID_KEY_EQUAL;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  //------------- Fourth Row -------------//
+  row = 9;
+  col = 0;
+
+  overlay.initQwertyRow(row, col, height, width);
+
+  col = 10 * width;
+  report.keyboard.modifier = 0;
+  report.keyboard.keycode = HID_KEY_BACKSPACE;
+  overlay.setMembraneReport(row, col, height, 2 * width, &report);
+
+  //------------- Fifth Row -------------//
+  row = 12;
+  col = 0;
+
+  overlay.initAsdfghRow(row, col, height, width);
+
+  col = 9 * width;
+  // mouse button
+
+  //------------- Sixth Row -------------//
+  row = 15;
+  col = 0;
+
+  overlay.initZxcvbnRow(row, col, height, width);
+  col = 7 * width;
+
+  uint8_t sixth_row[][2] = {{0, HID_KEY_SEMICOLON}, {0, HID_KEY_APOSTROPHE}};
+
+  overlay.initRow(row, col, height, width, sixth_row,
+                  sizeof(sixth_row) / sizeof(sixth_row[0]));
+
+  // more mouse
+
+  //------------- Seventh Row -------------//
+  row = 18;
+  col = 0;
+
+  report.keyboard.modifier = 0;
+  report.keyboard.keycode = HID_KEY_CAPS_LOCK;
+  overlay.setMembraneReport(row, col, height, width, &report);
+
+  col += width;
+  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
+  report.keyboard.keycode = 0;
+  overlay.setMembraneReport(row, col, height, 2 * width, &report);
+
+  col += 2 * width;
+  report.keyboard.modifier = 0;
+  report.keyboard.keycode = HID_KEY_SPACE;
+  overlay.setMembraneReport(row, col, height, 3 * width, &report);
+
+  col += 3 * width;
+  uint8_t seventh_row[][2] = {
+      {0, HID_KEY_COMMA}, {0, HID_KEY_PERIOD}, {0, HID_KEY_SLASH}};
+  overlay.initRow(row, col, height, width, seventh_row,
+                  sizeof(seventh_row) / sizeof(seventh_row[0]));
+
+  // mouse report
+
+  //------------- Eighth Row -------------//
+  row = 21;
+  col = 0;
+
+  uint8_t eighth_row[][2] = {
+      {KEYBOARD_MODIFIER_LEFTCTRL, 0}, {KEYBOARD_MODIFIER_LEFTALT, 0},
+      {KEYBOARD_MODIFIER_LEFTGUI, 0},  {0, HID_KEY_ARROW_LEFT},
+      {0, HID_KEY_ARROW_RIGHT},        {0, HID_KEY_ARROW_UP},
+      {0, HID_KEY_ARROW_DOWN}};
+  overlay.initRow(row, col, height, width, eighth_row,
+                  sizeof(eighth_row) / sizeof(eighth_row[0]));
+
+  col = 7 * width;
+  report.keyboard.modifier = 0;
+  report.keyboard.keycode = HID_KEY_ENTER;
+  overlay.setMembraneReport(row, col, height, 2 * width, &report);
+}
+
+//--------------------------------------------------------------------+
 // Alphabet Overlay
+//--------------------------------------------------------------------+
 void IKOverlay::initStdAlphabet(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_ALPHABET];
 
@@ -585,4 +766,46 @@ void IKOverlay::initStdAlphabet(void) {
 
   report.keyboard.keycode = HID_KEY_SPACE;
   overlay.setMembraneReport(20, 18, 3, 6, &report);
+}
+
+void IKOverlay::initRow(int row, int col, int height, int width,
+                        uint8_t kbd_report[][2], uint8_t count) {
+  for (uint8_t i = 0; i < count; i++) {
+    ik_report_t report;
+    report.type = IK_REPORT_TYPE_KEYBOARD;
+    report.keyboard.modifier = kbd_report[i][0];
+    report.keyboard.keycode = kbd_report[i][1];
+
+    setMembraneReport(row, col, height, width, &report);
+
+    col += width;
+  }
+}
+
+void IKOverlay::initQwertyRow(int row, int col, int height, int width) {
+  uint8_t kbd_item[][2] = {{0, HID_KEY_Q}, {0, HID_KEY_W}, {0, HID_KEY_E},
+                           {0, HID_KEY_R}, {0, HID_KEY_T}, {0, HID_KEY_Y},
+                           {0, HID_KEY_U}, {0, HID_KEY_I}, {0, HID_KEY_O},
+                           {0, HID_KEY_P}};
+
+  initRow(row, col, height, width, kbd_item,
+          sizeof(kbd_item) / sizeof(kbd_item[0]));
+}
+
+void IKOverlay::initAsdfghRow(int row, int col, int height, int width) {
+  uint8_t kbd_item[][2] = {{0, HID_KEY_A}, {0, HID_KEY_S}, {0, HID_KEY_D},
+                           {0, HID_KEY_F}, {0, HID_KEY_G}, {0, HID_KEY_H},
+                           {0, HID_KEY_J}, {0, HID_KEY_K}, {0, HID_KEY_L}};
+
+  initRow(row, col, height, width, kbd_item,
+          sizeof(kbd_item) / sizeof(kbd_item[0]));
+}
+
+void IKOverlay::initZxcvbnRow(int row, int col, int height, int width) {
+  uint8_t kb_item[][2] = {{0, HID_KEY_Z}, {0, HID_KEY_X}, {0, HID_KEY_C},
+                          {0, HID_KEY_V}, {0, HID_KEY_B}, {0, HID_KEY_N},
+                          {0, HID_KEY_M}};
+
+  initRow(row, col, height, width, kb_item,
+          sizeof(kb_item) / sizeof(kb_item[0]));
 }
