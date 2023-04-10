@@ -70,7 +70,7 @@ public:
 
   static void initStandardOverlays(void);
 
-  void setMembraneReport(int top_row, int top_col, int btm_row, int btm_col,
+  void setMembraneReport(int top_row, int top_col, int height, int width,
                          ik_report_t *report);
 
   void getSwitchReport(int nswitch, ik_report_t *report);

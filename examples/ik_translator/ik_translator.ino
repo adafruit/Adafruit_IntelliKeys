@@ -120,9 +120,9 @@ void scanMembraneAndSwitch(void) {
         overlay->getMembraneReport(i, j, &ik_report);
 
         if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
-          Serial.printf(
-              "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
-              ik_report.keyboard.modifier, ik_report.keyboard.keycode);
+          // Serial.printf(
+          //    "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
+          //    ik_report.keyboard.modifier, ik_report.keyboard.keycode);
           if (checkNewKeyboardReport(&report, ik_report.keyboard.modifier,
                                      ik_report.keyboard.keycode)) {
             report.modifier |= ik_report.keyboard.modifier;
@@ -139,7 +139,7 @@ void scanMembraneAndSwitch(void) {
       }
     }
   }
-
+#if 1
   // TODO scan switch
   if (count) {
     // send only if report is changed since last time
@@ -157,6 +157,7 @@ void scanMembraneAndSwitch(void) {
   }
 
   prev_report = report;
+#endif
 }
 
 void loop() {
