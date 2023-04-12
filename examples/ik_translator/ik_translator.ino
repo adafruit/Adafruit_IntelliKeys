@@ -58,13 +58,16 @@ Adafruit_IntelliKeys IKeys;
 // HID report descriptor for keyboard and mouse
 // Single Report (no ID) descriptor
 uint8_t const desc_keyboard_report[] = {TUD_HID_REPORT_DESC_KEYBOARD()};
-// uint8_t const desc_mouse_report[] = {TUD_HID_REPORT_DESC_MOUSE()};
+uint8_t const desc_mouse_report[] = {TUD_HID_REPORT_DESC_MOUSE()};
 
 // USB HID object. For ESP32 these values cannot be changed after this
 // declaration desc report, desc len, protocol, interval, use out endpoint
 Adafruit_USBD_HID usb_keyboard(desc_keyboard_report,
                                sizeof(desc_keyboard_report),
-                               HID_ITF_PROTOCOL_KEYBOARD, 2, false);
+                               HID_ITF_PROTOCOL_KEYBOARD, 8, false);
+
+Adafruit_USBD_HID usb_mouse(desc_mouse_report, sizeof(desc_mouse_report),
+                            HID_ITF_PROTOCOL_MOUSE, 8, false);
 
 //--------------------------------------------------------------------+
 // Setup and Loop on Core0
@@ -73,6 +76,7 @@ Adafruit_USBD_HID usb_keyboard(desc_keyboard_report,
 void setup() {
   Serial.begin(115200);
   usb_keyboard.begin();
+  usb_mouse.begin();
 
   // while ( !Serial ) delay(10);   // wait for native usb
 
@@ -94,9 +98,18 @@ bool checkNewKeyboardReport(hid_keyboard_report_t const *report,
   return true;
 }
 
+void combineMouseReport(hid_mouse_report_t *report,
+                        ik_report_mouse_t *ik_mouse) {
+  report->buttons |= ik_mouse->buttons;
+  report->x += ik_mouse->x;
+  report->y += ik_mouse->y;
+}
+
 void scanMembraneAndSwitch(void) {
-  static hid_keyboard_report_t prev_report = {0};
-  static bool has_report = false;
+  static hid_keyboard_report_t kb_prev_report = {0};
+  static bool kb_has_report = false;
+
+  static uint8_t mouse_prev_buttons = 0;
 
   if (!IKeys.IsOpen()) {
     return;
@@ -110,9 +123,12 @@ void scanMembraneAndSwitch(void) {
     return;
   }
 
-  hid_keyboard_report_t report = {0};
+  hid_keyboard_report_t kb_report = {0};
+  uint8_t kb_count = 0;
+
+  hid_mouse_report_t mouse_report = {0};
+
   const uint8_t(*mb)[IK_RESOLUTION_Y] = IKeys.getMembrane();
-  uint8_t count = 0;
 
   // scan membrane
   for (uint8_t i = 0; i < IK_RESOLUTION_X; i++) {
@@ -125,40 +141,55 @@ void scanMembraneAndSwitch(void) {
           // Serial.printf(
           //    "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
           //    ik_report.keyboard.modifier, ik_report.keyboard.keycode);
-          if (checkNewKeyboardReport(&report, ik_report.keyboard.modifier,
+          if (checkNewKeyboardReport(&kb_report, ik_report.keyboard.modifier,
                                      ik_report.keyboard.keycode)) {
-            report.modifier |= ik_report.keyboard.modifier;
-            report.keycode[count] = ik_report.keyboard.keycode;
-            count++;
+            kb_report.modifier |= ik_report.keyboard.modifier;
+            kb_report.keycode[kb_count] = ik_report.keyboard.keycode;
+
+            kb_count++;
+            if (kb_count >= 6) {
+              break;
+            }
           }
         } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
-          // not support mouse yet
-        }
-
-        if (count >= 6) {
-          break;
+          Serial.printf(
+              "rol = %u, col = %u, buttons = %02X, x = %d, y = %d\r\n", i, j,
+              ik_report.mouse.buttons, ik_report.mouse.x, ik_report.mouse.y);
+          combineMouseReport(&mouse_report, &ik_report.mouse);
         }
       }
     }
   }
-#if 1
+
   // TODO scan switch
-  if (count) {
-    // send only if report is changed since last time
-    if (memcmp(&prev_report, &report, sizeof(report))) {
-      usb_keyboard.sendReport(0, &report, sizeof(report));
+
+#if 1
+  if (kb_count) {
+    // send only if kb_report is changed since last time
+    if (memcmp(&kb_prev_report, &kb_report, sizeof(kb_report))) {
+      usb_keyboard.sendReport(0, &kb_report, sizeof(kb_report));
     }
-    has_report = true;
+    kb_has_report = true;
   } else {
-    if (has_report) {
-      // has report before, send empty report to release all keys
+    if (kb_has_report) {
+      // has kb_report before, send empty kb_report to release all keys
       hid_keyboard_report_t null_report = {0};
       usb_keyboard.sendReport(0, &null_report, sizeof(null_report));
     }
-    has_report = false;
+    kb_has_report = false;
   }
 
-  prev_report = report;
+  kb_prev_report = kb_report;
+
+  if (mouse_report.buttons != mouse_prev_buttons || mouse_report.x != 0 ||
+      mouse_report.y != 0) {
+    // x,y is only 0, 1, -1
+    enum { MOUSE_SCALE = 2 };
+    mouse_report.x *= MOUSE_SCALE;
+    mouse_report.y *= MOUSE_SCALE;
+    usb_mouse.sendReport(0, &mouse_report, sizeof(mouse_report));
+  }
+  mouse_prev_buttons = mouse_report.buttons;
 #endif
 }
 

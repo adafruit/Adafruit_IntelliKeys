@@ -48,13 +48,18 @@ Standard_Overlay_7_Name		none
 
 enum { IK_REPORT_TYPE_NONE = 0, IK_REPORT_TYPE_KEYBOARD, IK_REPORT_TYPE_MOUSE };
 
+enum {
+  IK_REPORT_MOUSE_DOUBLE_CLICK = (1u << 5),
+  IK_REPORT_MOUSE_CLICK_HOLD = (1u << 6),
+};
+
 typedef struct __attribute__((packed)) {
   uint8_t modifier;
   uint8_t keycode;
 } ik_report_keyboard_t;
 
 typedef struct __attribute__((packed)) {
-  uint8_t buttons;
+  uint8_t buttons; //
   int8_t x;
   int8_t y;
 } ik_report_mouse_t;
@@ -80,11 +85,12 @@ public:
   void getSwitchReport(int nswitch, ik_report_t *report);
   void getMembraneReport(int row, int col, ik_report_t *report);
 
-  void setMembraneKeyboardRow(int row, int col, int height, int width,
-                              ik_report_keyboard_t const kbd_item[],
+  void setMembraneKeyboardArr(int row, int col, int height, int width,
+                              const ik_report_keyboard_t kbd_report[],
                               uint8_t count);
-  // void setMembraneMouseRow(int row, int col, int height, int width, int8_t
-  // const mouse_item[][3], uint8_t count);
+  void setMembraneMouseArr(int row, int col, int height, int width,
+                           ik_report_mouse_t const mouse_report[],
+                           uint8_t count);
 
 private:
   ik_report_t _membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
