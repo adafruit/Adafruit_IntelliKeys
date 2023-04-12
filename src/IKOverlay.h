@@ -80,8 +80,8 @@ public:
   void getSwitchReport(int nswitch, ik_report_t *report);
   void getMembraneReport(int row, int col, ik_report_t *report);
 
-  void initRow(int row, int col, int height, int width, uint8_t kbd_item[][2],
-               uint8_t count);
+  void setMembraneKeyboardRow(int row, int col, int height, int width,
+                              uint8_t const kbd_item[][2], uint8_t count);
 
 private:
   ik_report_t _membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];

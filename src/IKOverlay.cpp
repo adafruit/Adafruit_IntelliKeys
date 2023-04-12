@@ -92,65 +92,20 @@ void IKOverlay::initStdMathAccess(void) {
   height = 6;
   width = 4;
 
-  // row 1
-  row = 0;
-  col = 0;
+  uint8_t const numbpad[] = {
+      HID_KEY_KEYPAD_7,  HID_KEY_KEYPAD_8, HID_KEY_KEYPAD_9,
+      HID_KEY_KEYPAD_4,  HID_KEY_KEYPAD_5, HID_KEY_KEYPAD_6,
+      HID_KEY_KEYPAD_1,  HID_KEY_KEYPAD_2, HID_KEY_KEYPAD_3,
+      HID_KEY_BACKSPACE, HID_KEY_KEYPAD_0, HID_KEY_KEYPAD_ENTER};
 
-  report.keyboard.keycode = HID_KEY_7;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_8;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_9;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  // row 2
-  row = 6;
-  col = 0;
-
-  report.keyboard.keycode = HID_KEY_4;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_5;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_6;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  // row 3
-  row = 12;
-  col = 0;
-
-  report.keyboard.keycode = HID_KEY_1;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_2;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_3;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  // row 4
-  row = 18;
-  col = 0;
-
-  report.keyboard.keycode = HID_KEY_BACKSPACE;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_0;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_ENTER;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 3; j++) {
+      row = i * 6;
+      col = j * 4;
+      report.keyboard.keycode = numbpad[i * 3 + j];
+      overlay.setMembraneReport(row, col, height, width, &report);
+    }
+  }
 
   //------------- Left Pad -------------//
   height = 3;
@@ -160,62 +115,34 @@ void IKOverlay::initStdMathAccess(void) {
   row = 0;
   col = 14;
 
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  report.keyboard.keycode = HID_KEY_EQUAL;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  uint8_t const first_row[][2] = {{0, HID_KEY_KEYPAD_ADD},
+                                  {0, HID_KEY_KEYPAD_SUBTRACT},
+                                  {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_4},
+                                  {0, HID_KEY_ARROW_LEFT},
+                                  {0, HID_KEY_ARROW_RIGHT}};
 
-  col += width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_MINUS;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  report.keyboard.keycode = HID_KEY_4;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_ARROW_LEFT;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_ARROW_RIGHT;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.setMembraneKeyboardRow(row, col, height, width, first_row,
+                                 sizeof(first_row) / sizeof(first_row[0]));
 
   // row 2
   row = 3;
   col = 14;
 
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  report.keyboard.keycode = HID_KEY_8;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  uint8_t const second_row[][2] = {{0, HID_KEY_KEYPAD_MULTIPLY},
+                                   {0, HID_KEY_KEYPAD_DIVIDE},
+                                   {0, HID_KEY_KEYPAD_DECIMAL},
+                                   {0, HID_KEY_ARROW_UP},
+                                   {0, HID_KEY_ARROW_DOWN}};
 
-  col += width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_SLASH;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_PERIOD;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_ARROW_UP;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_ARROW_DOWN;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.setMembraneKeyboardRow(row, col, height, width, second_row,
+                                 sizeof(second_row) / sizeof(second_row[0]));
 
   // row 3
   row = 6;
   col = 14;
 
   report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_EQUAL;
+  report.keyboard.keycode = HID_KEY_KEYPAD_EQUAL;
   overlay.setMembraneReport(row, col, height, 2 * width, &report);
 
   col += 2 * width;
@@ -231,14 +158,14 @@ void IKOverlay::initStdMathAccess(void) {
   col = 14;
 
   report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_BACKSPACE; // TODO: change to CLEAR
+  report.keyboard.keycode = HID_KEY_CLEAR;
   overlay.setMembraneReport(row, col, height, 2 * width, &report);
-
   col += 2 * width;
+
   report.keyboard.keycode = HID_KEY_ESCAPE;
   overlay.setMembraneReport(row, col, height, width, &report);
-
   col += 2 * width;
+
   report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
   report.keyboard.keycode = 0;
 
@@ -268,27 +195,14 @@ void IKOverlay::initStdBasicWriting(void) {
   row = 3;
   col = 0;
 
-  report.keyboard.keycode = HID_KEY_ESCAPE;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  uint8_t const first_row[][2] = {{0, HID_KEY_ESCAPE},
+                                  {0, HID_KEY_TAB},
+                                  {KEYBOARD_MODIFIER_LEFTALT, 0},
+                                  {KEYBOARD_MODIFIER_LEFTGUI, 0},
+                                  {KEYBOARD_MODIFIER_LEFTCTRL, 0}};
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_TAB;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTALT;
-  report.keyboard.keycode = 0;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTGUI;
-  report.keyboard.keycode = 0;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTCTRL;
-  report.keyboard.keycode = 0;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.setMembraneKeyboardRow(row, col, height, width, first_row,
+                                 sizeof(first_row) / sizeof(first_row[0]));
 
   // TODO more mouse
 
@@ -296,32 +210,15 @@ void IKOverlay::initStdBasicWriting(void) {
   row = 6;
   col = 0;
 
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_PERIOD;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  uint8_t const second_row[][2] = {{0, HID_KEY_PERIOD},
+                                   {0, HID_KEY_COMMA},
+                                   {0, HID_KEY_APOSTROPHE},
+                                   {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_1},
+                                   {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_SLASH},
+                                   {0, HID_KEY_MINUS}};
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_COMMA;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_APOSTROPHE;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_1;
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_SLASH;
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_MINUS;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.setMembraneKeyboardRow(row, col, height, width, second_row,
+                                 sizeof(second_row) / sizeof(second_row[0]));
 
   // TODO more mouse
 
@@ -333,7 +230,6 @@ void IKOverlay::initStdBasicWriting(void) {
   for (int i = 0; i < 10; i++) {
     report.keyboard.keycode = HID_KEY_1 + i;
     overlay.setMembraneReport(row, col, height, width, &report);
-
     col += width;
   }
 
@@ -344,45 +240,7 @@ void IKOverlay::initStdBasicWriting(void) {
   row = 12;
   col = 3; // first key is empty
 
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_Q;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_W;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_E;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_R;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_T;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_Y;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_U;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_I;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_O;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_P;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.initQwertyRow(row, col, height, width);
 
   //------------- Sixth Row -------------//
   row = 15;
@@ -391,44 +249,11 @@ void IKOverlay::initStdBasicWriting(void) {
   report.keyboard.modifier = 0;
   report.keyboard.keycode = HID_KEY_CAPS_LOCK;
   overlay.setMembraneReport(row, col, height, width, &report);
-
   col += width;
-  report.keyboard.keycode = HID_KEY_A;
-  overlay.setMembraneReport(row, col, height, width, &report);
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_S;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.initAsdfghRow(row, col, height, width);
+  col += 9 * width;
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_D;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_F;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_G;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_H;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_J;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_K;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_L;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
   report.keyboard.keycode = HID_KEY_ENTER;
   overlay.setMembraneReport(row, col, height, 2 * width, &report);
 
@@ -439,37 +264,11 @@ void IKOverlay::initStdBasicWriting(void) {
   report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
   report.keyboard.keycode = 0;
   overlay.setMembraneReport(row, col, height, 2 * width, &report);
-
   col += 2 * width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_Z;
-  overlay.setMembraneReport(row, col, height, width, &report);
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_X;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.initZxcvbnRow(row, col, height, width);
+  col += 7 * width;
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_C;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_V;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_B;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_N;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_M;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
   report.keyboard.modifier = KEYBOARD_MODIFIER_RIGHTSHIFT;
   report.keyboard.keycode = 0;
   overlay.setMembraneReport(row, col, height, 2 * width, &report);
@@ -483,21 +282,14 @@ void IKOverlay::initStdBasicWriting(void) {
   overlay.setMembraneReport(row, col, height, 3 * width, &report);
 
   col += 4 * width;
-  report.keyboard.modifier = 0;
-  report.keyboard.keycode = HID_KEY_ARROW_LEFT;
-  overlay.setMembraneReport(row, col, height, width, &report);
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_ARROW_RIGHT;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  uint8_t const eighth_row[][2] = {{0, HID_KEY_ARROW_LEFT},
+                                   {0, HID_KEY_ARROW_RIGHT},
+                                   {0, HID_KEY_ARROW_UP},
+                                   {0, HID_KEY_ARROW_DOWN}};
 
-  col += width;
-  report.keyboard.keycode = HID_KEY_ARROW_UP;
-  overlay.setMembraneReport(row, col, height, width, &report);
-
-  col += width;
-  report.keyboard.keycode = HID_KEY_ARROW_DOWN;
-  overlay.setMembraneReport(row, col, height, width, &report);
+  overlay.setMembraneKeyboardRow(row, col, height, width, eighth_row,
+                                 sizeof(eighth_row) / sizeof(eighth_row[0]));
 }
 
 //--------------------------------------------------------------------+
@@ -622,9 +414,8 @@ void IKOverlay::initStdQwerty(void) {
   col = 7 * width;
 
   uint8_t sixth_row[][2] = {{0, HID_KEY_SEMICOLON}, {0, HID_KEY_APOSTROPHE}};
-
-  overlay.initRow(row, col, height, width, sixth_row,
-                  sizeof(sixth_row) / sizeof(sixth_row[0]));
+  overlay.setMembraneKeyboardRow(row, col, height, width, sixth_row,
+                                 sizeof(sixth_row) / sizeof(sixth_row[0]));
 
   // more mouse
 
@@ -649,8 +440,8 @@ void IKOverlay::initStdQwerty(void) {
   col += 3 * width;
   uint8_t seventh_row[][2] = {
       {0, HID_KEY_COMMA}, {0, HID_KEY_PERIOD}, {0, HID_KEY_SLASH}};
-  overlay.initRow(row, col, height, width, seventh_row,
-                  sizeof(seventh_row) / sizeof(seventh_row[0]));
+  overlay.setMembraneKeyboardRow(row, col, height, width, seventh_row,
+                                 sizeof(seventh_row) / sizeof(seventh_row[0]));
 
   // mouse report
 
@@ -663,8 +454,8 @@ void IKOverlay::initStdQwerty(void) {
       {KEYBOARD_MODIFIER_LEFTGUI, 0},  {0, HID_KEY_ARROW_LEFT},
       {0, HID_KEY_ARROW_RIGHT},        {0, HID_KEY_ARROW_UP},
       {0, HID_KEY_ARROW_DOWN}};
-  overlay.initRow(row, col, height, width, eighth_row,
-                  sizeof(eighth_row) / sizeof(eighth_row[0]));
+  overlay.setMembraneKeyboardRow(row, col, height, width, eighth_row,
+                                 sizeof(eighth_row) / sizeof(eighth_row[0]));
 
   col = 7 * width;
   report.keyboard.modifier = 0;
@@ -682,99 +473,121 @@ void IKOverlay::initStdAlphabet(void) {
   report.type = IK_REPORT_TYPE_KEYBOARD;
   report.keyboard.modifier = 0;
 
-  //------------- First 2 Rows -------------//
-  report.keyboard.keycode = HID_KEY_ESCAPE;
-  overlay.setMembraneReport(0, 0, 4, 4, &report);
+  int row, col;
+  int const height = 4;
+  int width = 3;
 
-  report.keyboard.keycode = HID_KEY_CAPS_LOCK;
-  overlay.setMembraneReport(0, 4, 4, 4, &report);
+  //------------- First Row -------------//
+  row = 0;
+  col = 0;
+  width = 4;
 
-  report.keyboard.keycode = HID_KEY_BACKSPACE;
-  overlay.setMembraneReport(0, 8, 4, 4, &report);
+  uint8_t const first_row[][2] = {
+      {0, HID_KEY_ESCAPE}, {0, HID_KEY_CAPS_LOCK}, {0, HID_KEY_BACKSPACE}};
 
+  overlay.setMembraneKeyboardRow(row, col, height, width, first_row,
+                                 sizeof(first_row) / sizeof(first_row[0]));
+
+  // Arrow
+  width = 3;
   report.keyboard.keycode = HID_KEY_ARROW_LEFT;
-  overlay.setMembraneReport(1, 14, 4, 3, &report);
+  overlay.setMembraneReport(1, 14, height, width, &report);
 
   report.keyboard.keycode = HID_KEY_ARROW_UP;
-  overlay.setMembraneReport(0, 18, 4, 3, &report);
+  overlay.setMembraneReport(0, 18, height, width, &report);
 
   report.keyboard.keycode = HID_KEY_ARROW_RIGHT;
-  overlay.setMembraneReport(1, 21, 4, 2, &report);
+  overlay.setMembraneReport(1, 21, height, width, &report);
 
   report.keyboard.keycode = HID_KEY_ARROW_DOWN;
-  overlay.setMembraneReport(4, 18, 4, 3, &report);
+  overlay.setMembraneReport(4, 18, height, width, &report);
+
+  //----------------- Second Row -------------//
+  row = 4;
+  col = 1;
+  width = 2;
 
   report.keyboard.keycode = HID_KEY_PERIOD;
-  overlay.setMembraneReport(4, 1, 4, 2, &report);
+  overlay.setMembraneReport(row, col, height, width, &report);
+  col += width;
 
   report.keyboard.keycode = HID_KEY_COMMA;
-  overlay.setMembraneReport(4, 3, 4, 2, &report);
+  overlay.setMembraneReport(row, col, height, width, &report);
+  col += width;
+
+  width = 3; // although the label is the same, actual test is 3
 
   report.keyboard.keycode = HID_KEY_SLASH;
   report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  overlay.setMembraneReport(4, 5, 4, 2, &report);
+  overlay.setMembraneReport(row, col, height, width, &report);
+  col += width;
 
   report.keyboard.keycode = HID_KEY_1;
   report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  overlay.setMembraneReport(4, 7, 4, 2, &report);
+  overlay.setMembraneReport(row, col, height, width, &report);
 
-  report.keyboard.modifier = 0;
+  //----------------- Third Row -------------//
+  row = 8;
+  col = 0;
+  width = 3;
 
-  //------------- a -> h -------------//
   for (int i = 0; i < 8; i++) {
-    int const row = 8;
-    int col = i * 3;
     report.keyboard.keycode = HID_KEY_A + i;
-    overlay.setMembraneReport(row, col, 4, 3, &report);
+    overlay.setMembraneReport(row, col, height, width, &report);
+    col += width;
   }
 
-  //------------- i -> p -------------//
+  //----------------- Fourth Row -------------
+  row = 12;
+  col = 0;
+
   for (int i = 0; i < 8; i++) {
-    int const row = 12;
-    int col = i * 3;
     report.keyboard.keycode = HID_KEY_I + i;
-    overlay.setMembraneReport(row, col, 4, 3, &report);
+    overlay.setMembraneReport(row, col, height, width, &report);
+    col += width;
   }
 
-  //------------- q -> v, enter -------------//
+  //----------------- Fifth Row -------------//
+  row = 16;
+  col = 0;
+
   for (int i = 0; i < 6; i++) {
-    int const row = 16;
-    int col = i * 3;
     report.keyboard.keycode = HID_KEY_Q + i;
-    overlay.setMembraneReport(row, col, 4, 3, &report);
+    overlay.setMembraneReport(row, col, height, width, &report);
+    col += width;
   }
 
   report.keyboard.keycode = HID_KEY_ENTER;
-  overlay.setMembraneReport(16, 18, 4, 6, &report);
+  overlay.setMembraneReport(row, col, height, 2 * width, &report);
 
-  //------------- shift, w -> z, shift, space -------------//
-  report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
-  report.keyboard.keycode = 0;
+  //------------- Sixth Row -------------//
+  row = 20;
+  col = 0;
 
-  overlay.setMembraneReport(20, 0, 4, 3, &report);
+  uint8_t const sixth_row[][2] = {{KEYBOARD_MODIFIER_LEFTSHIFT, 0},
+                                  {0, HID_KEY_W},
+                                  {0, HID_KEY_X},
+                                  {0, HID_KEY_Y},
+                                  {0, HID_KEY_Z},
+                                  {KEYBOARD_MODIFIER_RIGHTSHIFT, 0}};
 
-  report.keyboard.modifier = KEYBOARD_MODIFIER_RIGHTSHIFT;
-  overlay.setMembraneReport(20, 15, 4, 3, &report);
+  overlay.setMembraneKeyboardRow(row, col, height, width, sixth_row,
+                                 sizeof(sixth_row) / sizeof(sixth_row[0]));
+  col += 6 * width;
 
   report.keyboard.modifier = 0;
-  for (int i = 1; i < 5; i++) {
-    int const row = 20;
-    int col = i * 3;
-    report.keyboard.keycode = HID_KEY_W + i - 1;
-    overlay.setMembraneReport(row, col, 4, 3, &report);
-  }
-
   report.keyboard.keycode = HID_KEY_SPACE;
-  overlay.setMembraneReport(20, 18, 3, 6, &report);
+  overlay.setMembraneReport(row, col, height, 2 * width, &report);
 }
 
-void IKOverlay::initRow(int row, int col, int height, int width,
-                        uint8_t kbd_report[][2], uint8_t count) {
+void IKOverlay::setMembraneKeyboardRow(int row, int col, int height, int width,
+                                       uint8_t const kbd_item[][2],
+                                       uint8_t count) {
   for (uint8_t i = 0; i < count; i++) {
     ik_report_t report;
     report.type = IK_REPORT_TYPE_KEYBOARD;
-    report.keyboard.modifier = kbd_report[i][0];
-    report.keyboard.keycode = kbd_report[i][1];
+    report.keyboard.modifier = kbd_item[i][0];
+    report.keyboard.keycode = kbd_item[i][1];
 
     setMembraneReport(row, col, height, width, &report);
 
@@ -788,8 +601,8 @@ void IKOverlay::initQwertyRow(int row, int col, int height, int width) {
                            {0, HID_KEY_U}, {0, HID_KEY_I}, {0, HID_KEY_O},
                            {0, HID_KEY_P}};
 
-  initRow(row, col, height, width, kbd_item,
-          sizeof(kbd_item) / sizeof(kbd_item[0]));
+  setMembraneKeyboardRow(row, col, height, width, kbd_item,
+                         sizeof(kbd_item) / sizeof(kbd_item[0]));
 }
 
 void IKOverlay::initAsdfghRow(int row, int col, int height, int width) {
@@ -797,8 +610,8 @@ void IKOverlay::initAsdfghRow(int row, int col, int height, int width) {
                            {0, HID_KEY_F}, {0, HID_KEY_G}, {0, HID_KEY_H},
                            {0, HID_KEY_J}, {0, HID_KEY_K}, {0, HID_KEY_L}};
 
-  initRow(row, col, height, width, kbd_item,
-          sizeof(kbd_item) / sizeof(kbd_item[0]));
+  setMembraneKeyboardRow(row, col, height, width, kbd_item,
+                         sizeof(kbd_item) / sizeof(kbd_item[0]));
 }
 
 void IKOverlay::initZxcvbnRow(int row, int col, int height, int width) {
@@ -806,6 +619,6 @@ void IKOverlay::initZxcvbnRow(int row, int col, int height, int width) {
                           {0, HID_KEY_V}, {0, HID_KEY_B}, {0, HID_KEY_N},
                           {0, HID_KEY_M}};
 
-  initRow(row, col, height, width, kb_item,
-          sizeof(kb_item) / sizeof(kb_item[0]));
+  setMembraneKeyboardRow(row, col, height, width, kb_item,
+                         sizeof(kb_item) / sizeof(kb_item[0]));
 }
