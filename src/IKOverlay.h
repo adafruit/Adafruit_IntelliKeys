@@ -67,11 +67,8 @@ typedef struct __attribute__((packed)) {
 class IKOverlay {
 public:
   IKOverlay();
-  static void initStdMathAccess(void);
-  static void initStdAlphabet(void);
-  static void initStdQwerty(void);
-  static void initStdBasicWriting(void);
 
+  // Init all std overlays
   static void initStandardOverlays(void);
 
   void setMembraneReport(int top_row, int top_col, int height, int width,
@@ -85,6 +82,15 @@ public:
 
 private:
   ik_report_t _membrane[IK_RESOLUTION_X][IK_RESOLUTION_Y];
+
+  // init each std overlays
+  static void initStdWebAccess(void);
+  static void initStdMathAccess(void);
+  static void initStdAlphabet(void);
+  static void initStdQwerty(void);
+  static void initStdBasicWriting(void);
+
+  static void initStdQwertyRow3to8(IKOverlay &overlay);
 
   // init row QWERTY
   void initQwertyRow(int row, int col, int height, int width);
