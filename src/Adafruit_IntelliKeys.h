@@ -59,7 +59,7 @@ public:
   void onMemBraneChanged(membrane_callback_t func);
   void onSwitchChanged(switch_callback_t func);
 
-  uint8_t (*getMembrane(void))[IK_RESOLUTION_Y] { return m_membrane; }
+  uint8_t const (*getMembrane(void))[IK_RESOLUTION_Y] { return m_membrane; }
 
   //--------------------------------------------------------------------+
   // Function named following IKDevice in OpenIKeys

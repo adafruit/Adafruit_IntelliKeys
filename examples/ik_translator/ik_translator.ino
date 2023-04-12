@@ -111,7 +111,7 @@ void scanMembraneAndSwitch(void) {
   }
 
   hid_keyboard_report_t report = {0};
-  uint8_t(*mb)[IK_RESOLUTION_Y] = IKeys.getMembrane();
+  const uint8_t(*mb)[IK_RESOLUTION_Y] = IKeys.getMembrane();
   uint8_t count = 0;
 
   // scan membrane
