@@ -262,7 +262,7 @@ void Adafruit_IntelliKeys::InterpretRaw() {
   for (uint8_t col = 0; col < IK_RESOLUTION_X; col++) {
     for (uint8_t row = 0; row < IK_RESOLUTION_Y; row++) {
       if (m_membrane[row][col] != m_last_membrane[row][col]) {
-        IK_PRINTF("Membrane [%02u, %02u] = %u\r\n", row, col,
+        IK_PRINTF("membrane [%02u, %02u] = %u\r\n", row, col,
                   m_membrane[row][col]);
         if (_membrane_cb) {
           _membrane_cb(row, col, m_membrane[row][col]);
@@ -276,7 +276,7 @@ void Adafruit_IntelliKeys::InterpretRaw() {
   //  look for switch change
   for (uint8_t nsw = 0; nsw < IK_NUM_SWITCHES; nsw++) {
     if (m_switches[nsw] != m_last_switches[nsw]) {
-      IK_PRINTF("Switch %02u = %u\r\n", nsw, m_switches[nsw]);
+      IK_PRINTF("switch %02u = %u\r\n", nsw, m_switches[nsw]);
       if (_switch_cb) {
         _switch_cb(nsw, m_switches[nsw]);
       }

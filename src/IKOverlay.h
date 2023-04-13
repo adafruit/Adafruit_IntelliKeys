@@ -99,6 +99,7 @@ private:
   static void initStdWebAccess(void);
   static void initStdMathAccess(void);
   static void initStdAlphabet(void);
+  static void initStdMouseAccess(void);
   static void initStdQwerty(void);
   static void initStdBasicWriting(void);
 

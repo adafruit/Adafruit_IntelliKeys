@@ -73,6 +73,7 @@ void IKOverlay::initStandardOverlays(void) {
   initStdWebAccess();
   initStdMathAccess();
   initStdAlphabet();
+  initStdMouseAccess();
   initStdQwerty();
   initStdBasicWriting();
 }
@@ -429,6 +430,92 @@ void IKOverlay::initStdBasicWriting(void) {
 }
 
 //--------------------------------------------------------------------+
+// Mouse Overlay
+//--------------------------------------------------------------------+
+void IKOverlay::initStdMouseAccess(void) {
+  IKOverlay &overlay = stdOverlays[IK_OVERLAY_MOUSE_ACCESS];
+
+  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0}};
+  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0}};
+
+  int col, row;
+  int const height = 6;
+  int const width = 4;
+
+  //------------- First Row -------------//
+  col = 0;
+
+  row = 0;
+  mouse_report.mouse.buttons = MOUSE_BUTTON_RIGHT;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 20;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 10;
+  kb_report.keyboard.modifier = 0;
+  kb_report.keyboard.keycode =
+      HID_KEY_ESCAPE; // TODO probably mouse related esc and not esc key ?
+  overlay.setMembraneReport(row, col, height / 2, width, &kb_report);
+
+  //------------- Second Row -------------//
+  row = 6;
+
+  col = 0;
+  mouse_report.mouse.buttons = IK_REPORT_MOUSE_CLICK_HOLD;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 20;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 6;
+  ik_report_mouse_t const mouse_2nd[] = {{0, -1, -1}, {0, 0, -1}, {0, 1, -1}};
+
+  overlay.setMembraneMouseArr(row, col, height, width, mouse_2nd,
+                              sizeof(mouse_2nd) / sizeof(mouse_2nd[0]));
+
+  //------------- Third Row -------------//
+  row = 12;
+
+  col = 0;
+  mouse_report.mouse.buttons = IK_REPORT_MOUSE_DOUBLE_CLICK;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 20;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 6;
+  ik_report_mouse_t const mouse_3rd[] = {
+      {0, -1, 0},
+      {MOUSE_BUTTON_LEFT, 0, 0},
+      {0, 1, 0},
+  };
+
+  overlay.setMembraneMouseArr(row, col, height, width, mouse_3rd,
+                              sizeof(mouse_3rd) / sizeof(mouse_3rd[0]));
+
+  //------------- Fourth Row -------------//
+  row = 18;
+
+  col = 0;
+  mouse_report.mouse.buttons = MOUSE_BUTTON_LEFT;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 20;
+  overlay.setMembraneReport(row, col, height, width, &mouse_report);
+
+  col = 6;
+  ik_report_mouse_t const mouse_4th[] = {
+      {0, -1, 1},
+      {0, 0, 1},
+      {0, 1, 1},
+  };
+
+  overlay.setMembraneMouseArr(row, col, height, width, mouse_4th,
+                              sizeof(mouse_4th) / sizeof(mouse_4th[0]));
+}
+
+// --------------------------------------------------------------------+
 // Qwerty Overlay
 //--------------------------------------------------------------------+
 void IKOverlay::initStdQwerty(void) {
