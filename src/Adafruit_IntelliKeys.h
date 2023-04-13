@@ -43,6 +43,7 @@ class Adafruit_IntelliKeys {
 public:
   typedef void (*membrane_callback_t)(uint8_t row, uint8_t col, uint8_t state);
   typedef void (*switch_callback_t)(uint8_t sw, uint8_t state);
+  typedef void (*toggle_callback_t)(uint8_t state);
 
   Adafruit_IntelliKeys(void);
 
@@ -56,8 +57,9 @@ public:
 
   void Periodic(void);
 
-  void onMemBraneChanged(membrane_callback_t func);
-  void onSwitchChanged(switch_callback_t func);
+  void onMemBraneChanged(membrane_callback_t func) { _membrane_cb = func; }
+  void onSwitchChanged(switch_callback_t func) { _switch_cb = func; }
+  void onToggleChanged(toggle_callback_t func) { _toggle_cb = func; }
 
   uint8_t const (*getMembrane(void))[IK_RESOLUTION_Y] { return m_membrane; }
 
@@ -122,6 +124,12 @@ private:
   uint8_t _daddr;
   uint8_t _opened;
 
+  membrane_callback_t _membrane_cb;
+  switch_callback_t _switch_cb;
+  toggle_callback_t _toggle_cb;
+
+  //------------- From OpenIKeys -------------//
+
   int m_currentLevel;
   int m_newLevel;
 
@@ -169,9 +177,6 @@ private:
   tu_fifo_t _cmd_ff;
   OSAL_MUTEX_DEF(_cmd_ff_mutex);
   uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];
-
-  membrane_callback_t _membrane_cb;
-  switch_callback_t _switch_cb;
 
   bool Start(void);
   void Reset(void);

@@ -154,6 +154,7 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
 
   _membrane_cb = NULL;
   _switch_cb = NULL;
+  _toggle_cb = NULL;
 
   tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
   tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
@@ -200,14 +201,8 @@ bool Adafruit_IntelliKeys::mount(uint8_t daddr) {
 void Adafruit_IntelliKeys::umount(uint8_t daddr) {
   if (daddr == _daddr) {
     _daddr = 0;
+    _opened = false;
   }
-}
-
-void Adafruit_IntelliKeys::onMemBraneChanged(membrane_callback_t func) {
-  _membrane_cb = func;
-}
-void Adafruit_IntelliKeys::onSwitchChanged(switch_callback_t func) {
-  _switch_cb = func;
 }
 
 void Adafruit_IntelliKeys::Periodic(void) {
@@ -604,6 +599,10 @@ void Adafruit_IntelliKeys::OnToggle(int newValue) {
     ResetMouse();
 
     // IKControlPanel::Refresh();
+
+    if (_toggle_cb) {
+      _toggle_cb((uint8_t)m_toggle);
+    }
   }
 }
 

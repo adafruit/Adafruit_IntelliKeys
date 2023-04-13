@@ -35,17 +35,41 @@
 
 #include "Adafruit_IntelliKeys.h"
 
+// use rp2040 tester board
+// #define USE_RP2040_TESTER
+
+#ifdef USE_RP2040_TESTER
+
+#define PIN_USB_HOST_DP 20
+#define PIN_5V_EN 22
+#define PIN_NEOPIXEL 13
+#define NEOPIXEL_POWER 28
+#define PIN_5V_EN_STATE 1
+
+#else
+
 // Pin D+ for host, D- = D+ + 1
 #ifndef PIN_USB_HOST_DP
-#define PIN_USB_HOST_DP 20
+#define PIN_USB_HOST_DP 16 // 20
 #endif
 
 // Pin for enabling Host VBUS. comment out if not used
 #ifndef PIN_5V_EN
-#define PIN_5V_EN 22
+#define PIN_5V_EN 18 // 22
 #endif
+
 #ifndef PIN_5V_EN_STATE
 #define PIN_5V_EN_STATE 1
+#endif
+
+#ifndef PIN_NEOPIXEL
+#define PIN_NEOPIXEL 21
+#endif
+
+#ifndef NEOPIXEL_POWER
+#define NEOPIXEL_POWER 20
+#endif
+
 #endif
 
 #define SCAN_INTERVAL 8
@@ -69,6 +93,18 @@ Adafruit_USBD_HID usb_keyboard(desc_keyboard_report,
 Adafruit_USBD_HID usb_mouse(desc_mouse_report, sizeof(desc_mouse_report),
                             HID_ITF_PROTOCOL_MOUSE, 8, false);
 
+//------------- prototypes -------------//
+enum { PIXEL_BRIGHTNESS = 0x20 };
+
+enum {
+  COLOR_NOT_READY = 0xff0000,
+  COLOR_READY = 0x00ff00,
+  COLOR_KEY_PRESSED = 0x0000ff
+};
+
+void setPixel(uint32_t color);
+void onToggleChanged(uint8_t state);
+
 //--------------------------------------------------------------------+
 // Setup and Loop on Core0
 //--------------------------------------------------------------------+
@@ -78,8 +114,17 @@ void setup() {
   usb_keyboard.begin();
   usb_mouse.begin();
 
-  // while ( !Serial ) delay(10);   // wait for native usb
+  // Enable neopixel power
+  pinMode(NEOPIXEL_POWER, OUTPUT);
+  digitalWrite(NEOPIXEL_POWER, HIGH);
 
+  pinMode(PIN_NEOPIXEL, OUTPUT);
+  digitalWrite(PIN_NEOPIXEL, LOW);
+  setPixel(0);
+
+  setPixel(COLOR_NOT_READY);
+
+  // while ( !Serial ) delay(10);   // wait for native usb
   Serial.println("IntelliKeys USB Adapter");
 }
 
@@ -112,7 +157,8 @@ void scanMembraneAndSwitch(void) {
 
   static uint8_t mouse_prev_buttons = 0;
 
-  if (!IKeys.IsOpen()) {
+  if (!IKeys.IsOpen() || !IKeys.IsSwitchedOn()) {
+    setPixel(COLOR_NOT_READY);
     return;
   }
 
@@ -132,12 +178,16 @@ void scanMembraneAndSwitch(void) {
   // get membrane matrix[24][24]
   const uint8_t(*mb)[IK_RESOLUTION_Y] = IKeys.getMembrane();
 
+  uint32_t color = COLOR_READY;
+
   // scan membrane
   for (uint8_t i = 0; i < IK_RESOLUTION_X; i++) {
     for (uint8_t j = 0; j < IK_RESOLUTION_Y; j++) {
       if (mb[i][j] == 1) {
         ik_report_t ik_report;
         overlay->getMembraneReport(i, j, &ik_report);
+
+        color = COLOR_KEY_PRESSED;
 
         if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
           // Serial.printf(
@@ -164,7 +214,6 @@ void scanMembraneAndSwitch(void) {
   }
 
   // TODO scan switch
-
 #if 1
   if (kb_count) {
     // send only if kb_report is changed since last time
@@ -196,6 +245,8 @@ void scanMembraneAndSwitch(void) {
   }
   mouse_prev_buttons = mouse_report.buttons;
 #endif
+
+  setPixel(color);
 }
 
 void loop() {
@@ -216,6 +267,7 @@ void loop() {
 
 void setup1() {
   IKeys.begin();
+  IKeys.onToggleChanged(onToggleChanged);
 
   //  while (!Serial) {
   //    delay(10); // wait for native usb
@@ -256,6 +308,15 @@ void setup1() {
 void loop1() {
   IKeys.Periodic();
   USBHost.task();
+}
+
+void onToggleChanged(uint8_t state) {
+  Serial.printf("Toggle changed to %u\r\n", state);
+  if (IKeys.IsOpen() && state == 1) {
+    setPixel(COLOR_READY);
+  } else {
+    setPixel(COLOR_NOT_READY);
+  }
 }
 
 //--------------------------------------------------------------------+
@@ -326,3 +387,115 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance,
 }
 
 } // extern C
+
+//--------------------------------------------------------------------+
+// Neopixel bit-banging since PIO is used by USBH
+//--------------------------------------------------------------------+
+
+void __no_inline_not_in_flash_func(setPixel)(uint32_t color) {
+  static uint32_t end_us = 0;
+  static uint32_t last_color = 0x123456;
+
+  if (last_color == color) {
+    // no need to update
+    return;
+  }
+
+  last_color = color;
+
+  uint8_t r = (uint8_t)(color >> 16); // red
+  uint8_t g = (uint8_t)(color >> 8);  // green
+  uint8_t b = (uint8_t)color;
+
+  // brightness correction
+  r = (uint8_t)((r * PIXEL_BRIGHTNESS) >> 8);
+  g = (uint8_t)((g * PIXEL_BRIGHTNESS) >> 8);
+  b = (uint8_t)((b * PIXEL_BRIGHTNESS) >> 8);
+
+  uint8_t buf[3]{g, r, b};
+
+  uint8_t *ptr, *end, p, bitMask;
+
+  enum { PIN_MASK = (1ul << PIN_NEOPIXEL) };
+
+  ptr = buf;
+  end = ptr + 3;
+  p = *ptr++;
+  bitMask = 0x80;
+
+  // wait for previous frame to finish
+  enum { FRAME_TIME_US = 300 };
+
+  uint32_t now = end_us;
+  while (now - end_us < FRAME_TIME_US) {
+    now = micros();
+    if (now < end_us) {
+      // micros() overflow
+      end_us = now;
+    }
+  }
+
+  uint32_t isr_context = save_and_disable_interrupts();
+
+  // RP2040 is 120 MHz, 120 cycle = 1us = 1000 ns
+  // Neopixel is 800 KHz, 1T = 1.25 us = 150 nop
+  while (1) {
+    if (p & bitMask) {
+      // T1H 0,8 us = 96 - 1 = 95 nop
+      sio_hw->gpio_set = PIN_MASK;
+      __asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+
+      // T1L 0,45 = 54 - 10 (ifelse) - 5 (overhead) = 44 nop
+      sio_hw->gpio_clr = PIN_MASK;
+      __asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+    } else {
+      // T0H 0,4 us = 48 - 1 = 47 nop
+      sio_hw->gpio_set = PIN_MASK;
+      __asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop;");
+
+      // T0L 0.85 us = 102 - 10 (ifelse) - 5 (overhead) = 87 nop
+      sio_hw->gpio_clr = PIN_MASK;
+      __asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+                     "nop; nop; nop; nop;");
+    }
+
+    if (bitMask >>= 1) {
+      // not full byte, shift to next bit
+      __asm volatile("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+    } else {
+      // probably take 10 nops
+      // if a full byte is sent, next to another byte
+      if (ptr >= end) {
+        break;
+      }
+      p = *ptr++;
+      bitMask = 0x80;
+    }
+  }
+
+  restore_interrupts(isr_context);
+
+  end_us = micros();
+}
