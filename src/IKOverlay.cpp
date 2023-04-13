@@ -38,7 +38,10 @@ IKOverlay stdOverlays[7];
 
 IKOverlay::IKOverlay() { memset(_membrane, 0, sizeof(_membrane)); }
 
-void IKOverlay::getSwitchReport(int nswitch, ik_report_t *report) {}
+void IKOverlay::getSwitchReport(int nswitch, ik_report_t *report) {
+  (void)nswitch;
+  (void)report;
+}
 
 void IKOverlay::getMembraneReport(int row, int col, ik_report_t *report) {
   if (row > IK_RESOLUTION_X || col > IK_RESOLUTION_Y) {
@@ -83,10 +86,6 @@ void IKOverlay::initStandardOverlays(void) {
 //--------------------------------------------------------------------+
 void IKOverlay::initStdWebAccess(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_WEB_ACCESS];
-
-  ik_report_t report;
-  report.type = IK_REPORT_TYPE_KEYBOARD;
-  report.keyboard.modifier = 0;
 
   int row, col;
   int const height = 3;
@@ -146,8 +145,8 @@ void IKOverlay::initStdWebAccess(void) {
 void IKOverlay::initStdMathAccess(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_MATH_ACCESS];
 
-  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0}};
-  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0}};
+  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0, 0}};
+  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0, 0, 0}};
 
   int row, col, height, width;
 
@@ -276,8 +275,8 @@ void IKOverlay::initStdMathAccess(void) {
 void IKOverlay::initStdBasicWriting(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_BASIC_WRITING];
 
-  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0}};
-  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0}};
+  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0, 0}};
+  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0, 0, 0}};
 
   int row, col;
 
@@ -435,8 +434,8 @@ void IKOverlay::initStdBasicWriting(void) {
 void IKOverlay::initStdMouseAccess(void) {
   IKOverlay &overlay = stdOverlays[IK_OVERLAY_MOUSE_ACCESS];
 
-  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0}};
-  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0}};
+  ik_report_t kb_report = {.type = IK_REPORT_TYPE_KEYBOARD, .keyboard = {0, 0}};
+  ik_report_t mouse_report = {.type = IK_REPORT_TYPE_MOUSE, .mouse = {0, 0, 0}};
 
   int col, row;
   int const height = 6;

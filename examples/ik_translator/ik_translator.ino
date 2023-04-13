@@ -107,7 +107,7 @@ void combineMouseReport(hid_mouse_report_t *report,
 }
 
 void scanMembraneAndSwitch(void) {
-  static hid_keyboard_report_t kb_prev_report = {0};
+  static hid_keyboard_report_t kb_prev_report = {0, 0, {0}};
   static bool kb_has_report = false;
 
   static uint8_t mouse_prev_buttons = 0;
@@ -124,11 +124,12 @@ void scanMembraneAndSwitch(void) {
     return;
   }
 
-  hid_keyboard_report_t kb_report = {0};
+  hid_keyboard_report_t kb_report = {0, 0, {0}};
   uint8_t kb_count = 0;
 
-  hid_mouse_report_t mouse_report = {0};
+  hid_mouse_report_t mouse_report = {0, 0, 0, 0, 0};
 
+  // get membrane matrix[24][24]
   const uint8_t(*mb)[IK_RESOLUTION_Y] = IKeys.getMembrane();
 
   // scan membrane
@@ -174,7 +175,7 @@ void scanMembraneAndSwitch(void) {
   } else {
     if (kb_has_report) {
       // has kb_report before, send empty kb_report to release all keys
-      hid_keyboard_report_t null_report = {0};
+      hid_keyboard_report_t null_report = {0, 0, {0}};
       usb_keyboard.sendReport(0, &null_report, sizeof(null_report));
     }
     kb_has_report = false;
