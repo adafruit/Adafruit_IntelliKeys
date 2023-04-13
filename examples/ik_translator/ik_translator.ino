@@ -48,7 +48,7 @@
 #define PIN_5V_EN_STATE 1
 #endif
 
-#define SCAN_INTERVAL 10
+#define SCAN_INTERVAL 8
 
 // USB Host object
 Adafruit_USBH_Host USBHost;
@@ -84,13 +84,14 @@ void setup() {
 }
 
 bool checkNewKeyboardReport(hid_keyboard_report_t const *report,
-                            uint8_t modifier, uint8_t keycode) {
-  if (modifier != 0 && !(report->modifier & modifier)) {
+                            ik_report_keyboard_t *ik_keyboard) {
+  if (ik_keyboard->modifier != 0 &&
+      !(report->modifier & ik_keyboard->modifier)) {
     return true;
   }
 
   for (uint8_t i = 0; i < 6; i++) {
-    if (keycode == report->keycode[i]) {
+    if (ik_keyboard->keycode == report->keycode[i]) {
       return false;
     }
   }
@@ -141,8 +142,7 @@ void scanMembraneAndSwitch(void) {
           // Serial.printf(
           //    "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
           //    ik_report.keyboard.modifier, ik_report.keyboard.keycode);
-          if (checkNewKeyboardReport(&kb_report, ik_report.keyboard.modifier,
-                                     ik_report.keyboard.keycode)) {
+          if (checkNewKeyboardReport(&kb_report, &ik_report.keyboard)) {
             kb_report.modifier |= ik_report.keyboard.modifier;
             kb_report.keycode[kb_count] = ik_report.keyboard.keycode;
 
@@ -152,9 +152,10 @@ void scanMembraneAndSwitch(void) {
             }
           }
         } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
-          Serial.printf(
-              "rol = %u, col = %u, buttons = %02X, x = %d, y = %d\r\n", i, j,
-              ik_report.mouse.buttons, ik_report.mouse.x, ik_report.mouse.y);
+          //          Serial.printf(
+          //              "rol = %u, col = %u, buttons = %02X, x = %d, y =
+          //              %d\r\n", i, j, ik_report.mouse.buttons,
+          //              ik_report.mouse.x, ik_report.mouse.y);
           combineMouseReport(&mouse_report, &ik_report.mouse);
         }
       }
@@ -184,9 +185,12 @@ void scanMembraneAndSwitch(void) {
   if (mouse_report.buttons != mouse_prev_buttons || mouse_report.x != 0 ||
       mouse_report.y != 0) {
     // x,y is only 0, 1, -1
-    enum { MOUSE_SCALE = 2 };
+    enum { MOUSE_SCALE = 1 };
     mouse_report.x *= MOUSE_SCALE;
     mouse_report.y *= MOUSE_SCALE;
+
+    // TODO check for IK_REPORT_MOUSE_DOUBLE_CLICK and
+    // IK_REPORT_MOUSE_CLICK_HOLD
     usb_mouse.sendReport(0, &mouse_report, sizeof(mouse_report));
   }
   mouse_prev_buttons = mouse_report.buttons;
