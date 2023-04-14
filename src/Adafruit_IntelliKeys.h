@@ -67,6 +67,7 @@ public:
   // Function named following IKDevice in OpenIKeys
   //--------------------------------------------------------------------+
 
+  bool isAttached(void) { return _daddr != 0; }
   bool IsOpen(void) { return _opened; }
   bool IsSwitchedOn(void) { return m_toggle == 1; }
   bool IsNumLockOn(void);

@@ -97,13 +97,13 @@ Adafruit_USBD_HID usb_mouse(desc_mouse_report, sizeof(desc_mouse_report),
 enum { PIXEL_BRIGHTNESS = 0x20 };
 
 enum {
-  COLOR_NOT_READY = 0xff0000,
+  COLOR_NO_USB = 0xff0000,
+  COLOR_NOT_READY = 0xffff00,
   COLOR_READY = 0x00ff00,
   COLOR_KEY_PRESSED = 0x0000ff
 };
 
 void setPixel(uint32_t color);
-void onToggleChanged(uint8_t state);
 
 //--------------------------------------------------------------------+
 // Setup and Loop on Core0
@@ -121,8 +121,9 @@ void setup() {
   pinMode(PIN_NEOPIXEL, OUTPUT);
   digitalWrite(PIN_NEOPIXEL, LOW);
   setPixel(0);
+  delay(1);
 
-  setPixel(COLOR_NOT_READY);
+  setPixel(COLOR_NO_USB);
 
   // while ( !Serial ) delay(10);   // wait for native usb
   Serial.println("IntelliKeys USB Adapter");
@@ -154,8 +155,12 @@ void combineMouseReport(hid_mouse_report_t *report,
 void scanMembraneAndSwitch(void) {
   static hid_keyboard_report_t kb_prev_report = {0, 0, {0}};
   static bool kb_has_report = false;
-
   static uint8_t mouse_prev_buttons = 0;
+
+  if (!IKeys.isAttached()) {
+    setPixel(COLOR_NO_USB);
+    return;
+  }
 
   if (!IKeys.IsOpen() || !IKeys.IsSwitchedOn()) {
     setPixel(COLOR_NOT_READY);
@@ -267,7 +272,6 @@ void loop() {
 
 void setup1() {
   IKeys.begin();
-  IKeys.onToggleChanged(onToggleChanged);
 
   //  while (!Serial) {
   //    delay(10); // wait for native usb
@@ -308,15 +312,6 @@ void setup1() {
 void loop1() {
   IKeys.Periodic();
   USBHost.task();
-}
-
-void onToggleChanged(uint8_t state) {
-  Serial.printf("Toggle changed to %u\r\n", state);
-  if (IKeys.IsOpen() && state == 1) {
-    setPixel(COLOR_READY);
-  } else {
-    setPixel(COLOR_NOT_READY);
-  }
 }
 
 //--------------------------------------------------------------------+

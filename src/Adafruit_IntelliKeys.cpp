@@ -125,6 +125,19 @@ const char *const ik_event_str[] = {
 //--------------------------------------------------------------------+
 
 Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
+  Reset();
+
+  _membrane_cb = NULL;
+  _switch_cb = NULL;
+  _toggle_cb = NULL;
+
+  tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
+  tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
+
+  //
+}
+
+void Adafruit_IntelliKeys::Reset(void) {
   _daddr = 0;
   _opened = false;
 
@@ -151,18 +164,7 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   m_firmwareVersionMinor = 0;
 
   m_lastSwitch = 0;
-
-  _membrane_cb = NULL;
-  _switch_cb = NULL;
-  _toggle_cb = NULL;
-
-  tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
-  tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
-
-  //
 }
-
-void Adafruit_IntelliKeys::Reset(void) {}
 
 void Adafruit_IntelliKeys::begin(void) { IKOverlay::initStandardOverlays(); }
 
@@ -200,8 +202,7 @@ bool Adafruit_IntelliKeys::mount(uint8_t daddr) {
 
 void Adafruit_IntelliKeys::umount(uint8_t daddr) {
   if (daddr == _daddr) {
-    _daddr = 0;
-    _opened = false;
+    Reset();
   }
 }
 
