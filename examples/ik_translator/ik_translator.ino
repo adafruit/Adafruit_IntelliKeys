@@ -400,7 +400,6 @@ void __no_inline_not_in_flash_func(setPixel)(uint32_t color) {
     // no need to update
     return;
   }
-
   last_color = color;
 
   uint8_t r = (uint8_t)(color >> 16); // red
@@ -412,7 +411,7 @@ void __no_inline_not_in_flash_func(setPixel)(uint32_t color) {
   g = (uint8_t)((g * PIXEL_BRIGHTNESS) >> 8);
   b = (uint8_t)((b * PIXEL_BRIGHTNESS) >> 8);
 
-  uint8_t buf[3]{g, r, b};
+  uint8_t buf[3] = {g, r, b};
 
   uint8_t *ptr, *end, p, bitMask;
 
@@ -435,7 +434,7 @@ void __no_inline_not_in_flash_func(setPixel)(uint32_t color) {
     }
   }
 
-  uint32_t isr_context = save_and_disable_interrupts();
+  uint32_t const isr_context = save_and_disable_interrupts();
 
   // RP2040 is 120 MHz, 120 cycle = 1us = 1000 ns
   // Neopixel is 800 KHz, 1T = 1.25 us = 150 nop
