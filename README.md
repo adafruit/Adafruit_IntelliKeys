@@ -17,9 +17,6 @@ This library supports the following hardware:
 
 TODO
 
-- control/command/atl latching
-- mouse down: released by mouse down, left, double click
-- shift key latching/non-latching/locking
 - Multiple keystrokes like www. and .com
 - Mouse double clicks
 - Support setup overlays for behavior settings (volume, repeat rate, mouse speed). Maybe stores settings in text file (exposed by MSC)
