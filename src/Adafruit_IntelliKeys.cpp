@@ -164,6 +164,8 @@ void Adafruit_IntelliKeys::Reset(void) {
   m_firmwareVersionMinor = 0;
 
   m_lastSwitch = 0;
+
+  _mod_ctrl = kModifierStateOff;
 }
 
 void Adafruit_IntelliKeys::begin(void) { IKOverlay::initStandardOverlays(); }
@@ -243,6 +245,76 @@ void Adafruit_IntelliKeys::Periodic(void) {
   ProcessCommands();
 
   // InterpretRaw();
+}
+
+static bool checkNewKeyboardReport(hid_keyboard_report_t const *report,
+                                   ik_report_keyboard_t *ik_keyboard) {
+  if (ik_keyboard->modifier != 0 &&
+      !(report->modifier & ik_keyboard->modifier)) {
+    return true;
+  }
+
+  for (uint8_t i = 0; i < 6; i++) {
+    if (ik_keyboard->keycode == report->keycode[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void combineMouseReport(hid_mouse_report_t *report,
+                               ik_report_mouse_t *ik_mouse) {
+  report->buttons |= ik_mouse->buttons;
+  report->x += ik_mouse->x;
+  report->y += ik_mouse->y;
+}
+
+void Adafruit_IntelliKeys::getHIDReport(IKOverlay *overlay,
+                                        hid_keyboard_report_t *kb_report,
+                                        hid_mouse_report_t *mouse_report) {
+  if (!IsOpen() || !IsSwitchedOn()) {
+    return;
+  }
+
+  memset(kb_report, 0, sizeof(hid_keyboard_report_t));
+  memset(mouse_report, 0, sizeof(hid_mouse_report_t));
+
+  uint8_t kb_count = 0;
+
+  //------------- scan membrane -------------//
+  for (uint8_t i = 0; i < IK_RESOLUTION_X; i++) {
+    for (uint8_t j = 0; j < IK_RESOLUTION_Y; j++) {
+      if (m_membrane[i][j] == 1) {
+        ik_report_t ik_report;
+        overlay->getMembraneReport(i, j, &ik_report);
+
+        if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
+          // Serial.printf(
+          //    "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
+          //    ik_report.keyboard.modifier, ik_report.keyboard.keycode);
+          if (checkNewKeyboardReport(kb_report, &ik_report.keyboard)) {
+            kb_report->modifier |= ik_report.keyboard.modifier;
+            if (ik_report.keyboard.keycode != 0) {
+              kb_report->keycode[kb_count] = ik_report.keyboard.keycode;
+              kb_count++;
+              if (kb_count >= 6) {
+                break;
+              }
+            }
+          }
+        } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
+          //          Serial.printf(
+          //              "rol = %u, col = %u, buttons = %02X, x = %d, y =
+          //              %d\r\n", i, j, ik_report.mouse.buttons,
+          //              ik_report.mouse.x, ik_report.mouse.y);
+          combineMouseReport(mouse_report, &ik_report.mouse);
+        }
+      }
+    }
+  }
+
+  // TODO scan switch
 }
 
 void Adafruit_IntelliKeys::InterpretRaw() {

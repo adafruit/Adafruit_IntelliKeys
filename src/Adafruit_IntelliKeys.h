@@ -55,6 +55,8 @@ public:
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
+  void getHIDReport(IKOverlay *overlay, hid_keyboard_report_t *kb_report,
+                    hid_mouse_report_t *mouse_report);
   void Periodic(void);
 
   void onMemBraneChanged(membrane_callback_t func) { _membrane_cb = func; }
@@ -169,6 +171,9 @@ private:
 
   int m_lastCodeUp;
   bool m_bShifted;
+
+  // Modifier: 0 = none, 1 = latched, 2 = locked
+  uint8_t _mod_ctrl;
 
   IKModifier m_modShift;
   IKModifier m_modAlt;
