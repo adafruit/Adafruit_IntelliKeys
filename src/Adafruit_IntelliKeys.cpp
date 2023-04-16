@@ -131,6 +131,9 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   _switch_cb = NULL;
   _toggle_cb = NULL;
 
+  _custom_overlay = NULL;
+  _custom_overlay_count = 0;
+
   tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
   tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
 
@@ -164,8 +167,6 @@ void Adafruit_IntelliKeys::Reset(void) {
   m_firmwareVersionMinor = 0;
 
   m_lastSwitch = 0;
-
-  _mod_ctrl = kModifierStateOff;
 }
 
 void Adafruit_IntelliKeys::begin(void) { IKOverlay::initStandardOverlays(); }
@@ -220,7 +221,7 @@ void Adafruit_IntelliKeys::Periodic(void) {
 
   //  setLEDs
   if (now > m_lastLEDTime + 100) {
-    // SetLEDs();
+    SetLEDs();
     m_lastLEDTime = now;
   }
 
@@ -270,15 +271,19 @@ static void combineMouseReport(hid_mouse_report_t *report,
   report->y += ik_mouse->y;
 }
 
-void Adafruit_IntelliKeys::getHIDReport(IKOverlay *overlay,
-                                        hid_keyboard_report_t *kb_report,
+void Adafruit_IntelliKeys::getHIDReport(hid_keyboard_report_t *kb_report,
                                         hid_mouse_report_t *mouse_report) {
+  memset(kb_report, 0, sizeof(hid_keyboard_report_t));
+  memset(mouse_report, 0, sizeof(hid_mouse_report_t));
+
   if (!IsOpen() || !IsSwitchedOn()) {
     return;
   }
 
-  memset(kb_report, 0, sizeof(hid_keyboard_report_t));
-  memset(mouse_report, 0, sizeof(hid_mouse_report_t));
+  IKOverlay *overlay = GetCurrentOverlay();
+  if (overlay == NULL) {
+    return;
+  }
 
   uint8_t kb_count = 0;
 
@@ -313,6 +318,8 @@ void Adafruit_IntelliKeys::getHIDReport(IKOverlay *overlay,
       }
     }
   }
+
+  // Check for modifier latching
 
   // TODO scan switch
 }
@@ -883,15 +890,20 @@ void Adafruit_IntelliKeys::OnStdOverlayChange() {
 }
 
 bool Adafruit_IntelliKeys::HasStandardOverlay() {
-  if (GetDevType() != 1) {
-    return false; //  only IK has standard overlays
-  }
-
-  return (m_currentOverlay != 7 && m_currentOverlay != -1);
+  // 0-6 is standard overlay, 7 is no overlay
+  return (0 <= m_currentOverlay && m_currentOverlay < 7);
 }
 
 IKOverlay *Adafruit_IntelliKeys::GetCurrentOverlay() {
-  return &stdOverlays[m_currentOverlay];
+  if (HasStandardOverlay()) {
+    return &stdOverlays[m_currentOverlay];
+  } else if ((m_currentOverlay > 7) &&
+             (m_currentOverlay - 8 < _custom_overlay_count) &&
+             (_custom_overlay != NULL)) {
+    return &_custom_overlay[m_currentOverlay - 8];
+  } else {
+    return NULL;
+  }
 }
 
 void Adafruit_IntelliKeys::OverlayRecognitionFeedback() {

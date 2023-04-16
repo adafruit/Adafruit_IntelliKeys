@@ -158,20 +158,12 @@ void scanMembraneAndSwitch(void) {
     return;
   }
 
-  IKOverlay *overlay;
-  if (IKeys.HasStandardOverlay()) {
-    overlay = IKeys.GetCurrentOverlay();
-  } else {
-    // not support non-std overlay yet
-    return;
-  }
-
   uint32_t color = COLOR_READY;
 
-  hid_keyboard_report_t kb_report = {0, 0, {0}};
-  hid_mouse_report_t mouse_report = {0, 0, 0, 0, 0};
+  hid_keyboard_report_t kb_report;
+  hid_mouse_report_t mouse_report;
 
-  IKeys.getHIDReport(overlay, &kb_report, &mouse_report);
+  IKeys.getHIDReport(&kb_report, &mouse_report);
 
   //------------- Keyboard -------------//
   bool new_kb_report = hasKeyboardReport(&kb_report);

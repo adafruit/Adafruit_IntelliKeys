@@ -55,7 +55,12 @@ public:
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
-  void getHIDReport(IKOverlay *overlay, hid_keyboard_report_t *kb_report,
+  void setCustomOverlay(IKOverlay *overlay, uint32_t count) {
+    _custom_overlay = overlay;
+    _custom_overlay_count = count;
+  }
+
+  void getHIDReport(hid_keyboard_report_t *kb_report,
                     hid_mouse_report_t *mouse_report);
   void Periodic(void);
 
@@ -131,6 +136,9 @@ private:
   switch_callback_t _switch_cb;
   toggle_callback_t _toggle_cb;
 
+  IKOverlay *_custom_overlay;
+  uint32_t _custom_overlay_count;
+
   //------------- From OpenIKeys -------------//
 
   int m_currentLevel;
@@ -171,9 +179,6 @@ private:
 
   int m_lastCodeUp;
   bool m_bShifted;
-
-  // Modifier: 0 = none, 1 = latched, 2 = locked
-  uint8_t _mod_ctrl;
 
   IKModifier m_modShift;
   IKModifier m_modAlt;
