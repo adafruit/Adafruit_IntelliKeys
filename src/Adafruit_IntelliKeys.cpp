@@ -333,22 +333,54 @@ void Adafruit_IntelliKeys::InterpretRaw() {
     return;
   }
 
+  IKOverlay *overlay = GetCurrentOverlay();
+
   //  look for _membrane change
   for (uint8_t col = 0; col < IK_RESOLUTION_X; col++) {
     for (uint8_t row = 0; row < IK_RESOLUTION_Y; row++) {
-      if (m_membrane[row][col] != m_last_membrane[row][col]) {
-        IK_PRINTF("membrane [%02u, %02u] = %u\r\n", row, col,
-                  m_membrane[row][col]);
+      const uint8_t state = m_membrane[row][col];
+      if (state != m_last_membrane[row][col]) {
+        IK_PRINTF("membrane [%02u, %02u] = %u\r\n", row, col, state);
 
-        if (m_membrane[row][col]) {
+        if (state) {
           ShortKeySound();
+
+          // Modifier Latching
+          if (overlay) {
+            ik_report_t ik_report;
+            overlay->getMembraneReport(row, col, &ik_report);
+            if (ik_report.type == IK_REPORT_TYPE_KEYBOARD &&
+                ik_report.keyboard.modifier) {
+              uint8_t const modifier = ik_report.keyboard.modifier;
+
+              if (modifier &
+                  (KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTCTRL)) {
+                m_modControl.ToggleState();
+              }
+
+              if (modifier & (KEYBOARD_MODIFIER_LEFTSHIFT |
+                              KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+                m_modShift.ToggleState();
+              }
+
+              if (modifier &
+                  (KEYBOARD_MODIFIER_LEFTALT | KEYBOARD_MODIFIER_RIGHTALT)) {
+                m_modAlt.ToggleState();
+              }
+
+              if (modifier &
+                  (KEYBOARD_MODIFIER_LEFTGUI | KEYBOARD_MODIFIER_RIGHTGUI)) {
+                m_modCommand.ToggleState();
+              }
+            }
+          }
         }
 
         if (_membrane_cb) {
-          _membrane_cb(row, col, m_membrane[row][col]);
+          _membrane_cb(row, col, state);
         }
         // save current state for next time
-        m_last_membrane[row][col] = m_membrane[row][col];
+        m_last_membrane[row][col] = state;
       }
     }
   }

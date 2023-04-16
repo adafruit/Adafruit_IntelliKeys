@@ -7,6 +7,17 @@
 #include "IKModifier.h"
 #include "Adafruit_IntelliKeys.h"
 
+#define IK_MODIFIER_CHANGE_DELAY 5
+
+void IKModifier::ToggleState() {
+  // skip if it is changed in the last 5ms
+  if (millis() - m_lastTime > IK_MODIFIER_CHANGE_DELAY) {
+    m_lastTime = millis();
+    m_state = (m_state == kModifierStateOff) ? kModifierStateLatched
+                                             : kModifierStateOff;
+  }
+}
+
 void IKModifier::SetState(int state) {
   IKSettings *pSettings = IKSettings::GetSettings();
   if (pSettings == NULL)

@@ -31,15 +31,23 @@ class Adafruit_IntelliKeys;
 class IKModifier {
 
 public:
-  IKModifier() { m_state = kModifierStateOff; }
+  IKModifier() {
+    m_state = kModifierStateOff;
+    m_lastTime = 0;
+  }
   virtual ~IKModifier() {}
   void Execute(int code = 0);
   int GetState() { return m_state; }
   void SetState(int state);
   void SetCode(uint8_t code) { m_universalCode = code; }
+
+  void ToggleState();
+
   int m_state;
   int m_universalCode;
   int m_universalCodeOverride;
+  uint32_t m_lastTime;
+
   void SetDevice(Adafruit_IntelliKeys *pDev) { m_device = pDev; }
   Adafruit_IntelliKeys *m_device;
 };
