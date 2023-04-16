@@ -18,6 +18,19 @@ void IKModifier::ToggleState() {
   }
 }
 
+void IKModifier::UpdateState(uint8_t mask) {
+  // skip if it is changed in the last 5ms
+  if (millis() - m_lastTime > IK_MODIFIER_CHANGE_DELAY) {
+    m_lastTime = millis();
+
+    if (mask & m_mask) {
+      // toggle if it is our mask
+      m_state = (m_state == kModifierStateOff) ? kModifierStateLatched
+                                               : kModifierStateOff;
+    }
+  }
+}
+
 void IKModifier::SetState(int state) { m_state = state; }
 
 void IKModifier::Execute(int code) {

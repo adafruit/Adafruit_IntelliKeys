@@ -405,7 +405,7 @@ void IKOverlay::initStdBasicWriting(void) {
   overlay.initZxcvbnRow(row, col, height, width);
   col += 7 * width;
 
-  kb_report.keyboard.modifier = KEYBOARD_MODIFIER_RIGHTSHIFT;
+  kb_report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
   kb_report.keyboard.keycode = 0;
   overlay.setMembraneReport(row, col, height, 2 * width, &kb_report);
 
@@ -789,7 +789,7 @@ void IKOverlay::initStdAlphabet(void) {
                                             {0, HID_KEY_X},
                                             {0, HID_KEY_Y},
                                             {0, HID_KEY_Z},
-                                            {KEYBOARD_MODIFIER_RIGHTSHIFT, 0}};
+                                            {KEYBOARD_MODIFIER_LEFTSHIFT, 0}};
 
   overlay.setMembraneKeyboardArr(row, col, height, width, sixth_row,
                                  sizeof(sixth_row) / sizeof(sixth_row[0]));

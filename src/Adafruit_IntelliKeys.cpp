@@ -124,7 +124,11 @@ const char *const ik_event_str[] = {
 // Public API
 //--------------------------------------------------------------------+
 
-Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
+Adafruit_IntelliKeys::Adafruit_IntelliKeys(void)
+    : m_modShift(KEYBOARD_MODIFIER_LEFTSHIFT),
+      m_modAlt(KEYBOARD_MODIFIER_LEFTALT),
+      m_modControl(KEYBOARD_MODIFIER_LEFTCTRL),
+      m_modCommand(KEYBOARD_MODIFIER_LEFTGUI) {
   Reset();
 
   _membrane_cb = NULL;
@@ -320,6 +324,26 @@ void Adafruit_IntelliKeys::getHIDReport(hid_keyboard_report_t *kb_report,
   }
 
   // Check for modifier latching
+  if (m_modShift.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTSHIFT;
+  }
+
+  if (m_modAlt.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTALT;
+  }
+
+  if (m_modControl.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTCTRL;
+  }
+
+  if (m_modCommand.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTGUI;
+  }
+
+  if (kb_count) {
+    PostLiftAllModifiers();
+  }
+
   if (!(mouse_report->buttons & MOUSE_BUTTON_LEFT) &&
       (m_mouseDown.GetState() != kModifierStateOff)) {
     mouse_report->buttons |= MOUSE_BUTTON_LEFT;
@@ -354,29 +378,13 @@ void Adafruit_IntelliKeys::InterpretRaw() {
             ik_report_t ik_report;
             overlay->getMembraneReport(row, col, &ik_report);
 
-            if (ik_report.type == IK_REPORT_TYPE_KEYBOARD &&
-                ik_report.keyboard.modifier) {
+            if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
               uint8_t const modifier = ik_report.keyboard.modifier;
 
-              if (modifier &
-                  (KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTCTRL)) {
-                m_modControl.ToggleState();
-              }
-
-              if (modifier & (KEYBOARD_MODIFIER_LEFTSHIFT |
-                              KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-                m_modShift.ToggleState();
-              }
-
-              if (modifier &
-                  (KEYBOARD_MODIFIER_LEFTALT | KEYBOARD_MODIFIER_RIGHTALT)) {
-                m_modAlt.ToggleState();
-              }
-
-              if (modifier &
-                  (KEYBOARD_MODIFIER_LEFTGUI | KEYBOARD_MODIFIER_RIGHTGUI)) {
-                m_modCommand.ToggleState();
-              }
+              m_modControl.UpdateState(modifier);
+              m_modShift.UpdateState(modifier);
+              m_modAlt.UpdateState(modifier);
+              m_modCommand.UpdateState(modifier);
             } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
               if (ik_report.mouse.buttons & IK_REPORT_MOUSE_CLICK_HOLD) {
                 m_mouseDown.ToggleState();
@@ -878,7 +886,6 @@ void Adafruit_IntelliKeys::PostLiftAllModifiers() {
   m_modAlt.SetState(kModifierStateOff);
   m_modControl.SetState(kModifierStateOff);
   m_modCommand.SetState(kModifierStateOff);
-  m_mouseDown.SetState(kModifierStateOff);
 }
 
 void Adafruit_IntelliKeys::PostCPRefresh() {
@@ -894,6 +901,7 @@ void Adafruit_IntelliKeys::ResetKeyboard(void) {
 
 void Adafruit_IntelliKeys::ResetMouse(void) {
   //  reset mouse
+  m_mouseDown.SetState(kModifierStateOff);
 }
 
 void Adafruit_IntelliKeys::OnStdOverlayChange() {
