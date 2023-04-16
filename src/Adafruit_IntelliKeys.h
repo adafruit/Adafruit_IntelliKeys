@@ -185,6 +185,8 @@ private:
   IKModifier m_modControl;
   IKModifier m_modCommand;
 
+  IKModifier m_mouseDown;
+
   tu_fifo_t _cmd_ff;
   OSAL_MUTEX_DEF(_cmd_ff_mutex);
   uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];

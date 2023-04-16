@@ -372,15 +372,25 @@ void Adafruit_IntelliKeys::InterpretRaw() {
                   (KEYBOARD_MODIFIER_LEFTGUI | KEYBOARD_MODIFIER_RIGHTGUI)) {
                 m_modCommand.ToggleState();
               }
+            } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
+              if (ik_report.mouse.buttons & IK_REPORT_MOUSE_CLICK_HOLD) {
+                m_mouseDown.ToggleState();
+              }
+
+              if (ik_report.mouse.buttons &
+                  (MOUSE_BUTTON_LEFT | IK_REPORT_MOUSE_DOUBLE_CLICK)) {
+                m_mouseDown.SetState(kModifierStateOff);
+              }
             }
           }
         }
 
+        // save current state for next time
+        m_last_membrane[row][col] = state;
+
         if (_membrane_cb) {
           _membrane_cb(row, col, state);
         }
-        // save current state for next time
-        m_last_membrane[row][col] = state;
       }
     }
   }
@@ -450,8 +460,7 @@ bool Adafruit_IntelliKeys::IsCapsLockOn(void) {
 }
 
 bool Adafruit_IntelliKeys::IsMouseDown(void) {
-  // implement later
-  return false;
+  return m_mouseDown.GetState() != 0;
 }
 
 void Adafruit_IntelliKeys::DoCorrect(void) {
