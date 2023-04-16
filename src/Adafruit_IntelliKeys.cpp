@@ -320,6 +320,10 @@ void Adafruit_IntelliKeys::getHIDReport(hid_keyboard_report_t *kb_report,
   }
 
   // Check for modifier latching
+  if (!(mouse_report->buttons & MOUSE_BUTTON_LEFT) &&
+      (m_mouseDown.GetState() != kModifierStateOff)) {
+    mouse_report->buttons |= MOUSE_BUTTON_LEFT;
+  }
 
   // TODO scan switch
 }
@@ -349,6 +353,7 @@ void Adafruit_IntelliKeys::InterpretRaw() {
           if (overlay) {
             ik_report_t ik_report;
             overlay->getMembraneReport(row, col, &ik_report);
+
             if (ik_report.type == IK_REPORT_TYPE_KEYBOARD &&
                 ik_report.keyboard.modifier) {
               uint8_t const modifier = ik_report.keyboard.modifier;
@@ -403,11 +408,12 @@ void Adafruit_IntelliKeys::InterpretRaw() {
         ShortKeySound();
       }
 
+      // save current state for next time
+      m_last_switches[nsw] = m_switches[nsw];
+
       if (_switch_cb) {
         _switch_cb(nsw, m_switches[nsw]);
       }
-      // save current state for next time
-      m_last_switches[nsw] = m_switches[nsw];
     }
   }
 }
@@ -867,10 +873,12 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
 }
 
 void Adafruit_IntelliKeys::PostLiftAllModifiers() {
-  //  send the command
-  uint8_t report[IK_REPORT_LEN] = {
-      IK_CMD_LIFTALLMODIFIERS, 0, 0, 0, 0, 0, 0, 0};
-  PostCommand(report);
+  // run IK_CMD_LIFTALLMODIFIERS right here instead of using PostCommand
+  m_modShift.SetState(kModifierStateOff);
+  m_modAlt.SetState(kModifierStateOff);
+  m_modControl.SetState(kModifierStateOff);
+  m_modCommand.SetState(kModifierStateOff);
+  m_mouseDown.SetState(kModifierStateOff);
 }
 
 void Adafruit_IntelliKeys::PostCPRefresh() {
