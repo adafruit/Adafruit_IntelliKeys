@@ -15,13 +15,22 @@ This library supports the following hardware:
 
 ## Features
 
-TODO
+This library tries to support all features of the original IntelliKeys USB driver. The following features are supported:
 
+- Download ez-usb firmware from USB host with color indicator. Red for no usb, yellow for downloading/not ready, green for ready.
+- IntelliKeys overlay detection with LEDs and sound indicator
+- Support all standard overlays (except setup) with both keyboard and mouse.
+- Support all modifier latching for keys like shift, ctrl, alt, command/win/super
+- Support toggle (on/off) switch detection (yellow LED)
+- Support custom overlays but required re-compiled firmware with new overlay definition.
+
+TODO (not supported yet):
+
+- Switch is not supported due to lack of testing hardware
 - Multiple keystrokes like www. and .com
 - Mouse double clicks
 - Support setup overlays for behavior settings (volume, repeat rate, mouse speed). Maybe stores settings in text file (exposed by MSC)
-- Custom overlays in text file
-
+- Custom overlays in text file in MSC
 
 ## Installation
 

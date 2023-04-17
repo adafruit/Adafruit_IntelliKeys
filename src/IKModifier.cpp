@@ -4,8 +4,10 @@
  * Copyright (c) 2023 Ha Thach (thach@tinyusb.org) for Adafruit Industries
  */
 
-#include "IKModifier.h"
+#include "Arduino.h"
+
 #include "Adafruit_IntelliKeys.h"
+#include "IKModifier.h"
 
 #define IK_MODIFIER_CHANGE_DELAY 5
 

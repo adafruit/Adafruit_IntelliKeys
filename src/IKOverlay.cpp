@@ -136,7 +136,7 @@ void IKOverlay::initStdWebAccess(void) {
                                  sizeof(second_row) / sizeof(second_row[0]));
 
   // Row 3 to 8
-  initStdQwertyRow3to8(overlay);
+  initStdQwertyRow3to8(overlay, true);
 }
 
 //--------------------------------------------------------------------+
@@ -562,10 +562,10 @@ void IKOverlay::initStdQwerty(void) {
   }
 
   // Row 3 to 8
-  initStdQwertyRow3to8(overlay);
+  initStdQwertyRow3to8(overlay, false);
 }
 
-void IKOverlay::initStdQwertyRow3to8(IKOverlay &overlay) {
+void IKOverlay::initStdQwertyRow3to8(IKOverlay &overlay, bool is_web) {
   ik_report_t report;
   report.type = IK_REPORT_TYPE_KEYBOARD;
   report.keyboard.modifier = 0;
@@ -640,15 +640,24 @@ void IKOverlay::initStdQwertyRow3to8(IKOverlay &overlay) {
   row = 18;
   col = 0;
 
-  ik_report_keyboard_t const seventh_row[] = {{0, HID_KEY_CAPS_LOCK},
-                                              {KEYBOARD_MODIFIER_LEFTSHIFT, 0},
-                                              {KEYBOARD_MODIFIER_LEFTSHIFT, 0},
-                                              {0, HID_KEY_SPACE},
-                                              {0, HID_KEY_SPACE},
-                                              {0, HID_KEY_SPACE},
-                                              {0, HID_KEY_COMMA},
-                                              {0, HID_KEY_PERIOD},
-                                              {0, HID_KEY_SLASH}};
+  ik_report_keyboard_t seventh_row[] = {{0, HID_KEY_CAPS_LOCK},
+                                        {KEYBOARD_MODIFIER_LEFTSHIFT, 0},
+                                        {KEYBOARD_MODIFIER_LEFTSHIFT, 0},
+                                        {0, HID_KEY_SPACE},
+                                        {0, HID_KEY_SPACE},
+                                        {0, HID_KEY_SPACE},
+                                        {0, HID_KEY_COMMA},
+                                        {0, HID_KEY_PERIOD},
+                                        {0, HID_KEY_SLASH}};
+
+  // default is std, slightly changes if web overlay
+  if (is_web) {
+    seventh_row[3].keycode = HID_KEY_PAGE_UP;
+    seventh_row[6].keycode = HID_KEY_PAGE_DOWN;
+    seventh_row[7].keycode = HID_KEY_COMMA;
+    seventh_row[8].keycode = HID_KEY_PERIOD;
+  }
+
   overlay.setMembraneKeyboardArr(row, col, height, width, seventh_row,
                                  sizeof(seventh_row) / sizeof(seventh_row[0]));
   col += 9 * width;
