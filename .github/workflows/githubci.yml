@@ -71,6 +71,7 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
+        name: ik_translator-${{ matrix.board }}
         path: ik_translator-${{ matrix.board }}.uf2
 
     - name: Prepare Release Asset
