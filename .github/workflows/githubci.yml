@@ -43,7 +43,7 @@ jobs:
       matrix:
         arduino-platform:
            # RP2040
-           - 'feather_rp2040_tinyusb'
+           - 'feather_rp2040_usbhost_tinyusb'
 
     steps:
     - name: Setup Python
