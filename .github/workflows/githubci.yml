@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arduino-platform:
+        board:
            # RP2040
            - 'feather_rp2040_usbhost_tinyusb'
 
@@ -64,8 +64,23 @@ jobs:
       run: bash ci/actions_install.sh
 
     - name: test platforms
-      run: python3 ci/build_platform.py ${{ matrix.arduino-platform }}
+      run: |
+        python3 ci/build_platform.py ${{ matrix.board }}
+        tree examples/ik_translator
+        cp examples/ik_translator/build/*/ik_translator.ino.uf2 ik_translator.uf2
 
-    - run: |
-        ls examples/ik_translator/build
-        tree examples/ik_translator/
+    - uses: actions/upload-artifact@v3
+      with:
+        name: ik_translator-${{ matrix.board }}
+        path: ik_translator.uf2
+
+    - name: Prepare Release Asset
+      if: ${{ github.event_name == 'release' }}
+      run: |
+        cp ik_translator.uf2 ik_translator-${{ matrix.board }}-${{ github.event.release.tag_name }}.uf2
+
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      if: ${{ github.event_name == 'release' }}
+      with:
+        files: ik_translator-${{ matrix.board }}-${{ github.event.release.tag_name }}.uf2
