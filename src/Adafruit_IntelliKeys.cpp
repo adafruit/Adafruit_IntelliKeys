@@ -124,7 +124,27 @@ const char *const ik_event_str[] = {
 // Public API
 //--------------------------------------------------------------------+
 
-Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
+Adafruit_IntelliKeys::Adafruit_IntelliKeys(void)
+    : m_modShift(KEYBOARD_MODIFIER_LEFTSHIFT),
+      m_modAlt(KEYBOARD_MODIFIER_LEFTALT),
+      m_modControl(KEYBOARD_MODIFIER_LEFTCTRL),
+      m_modCommand(KEYBOARD_MODIFIER_LEFTGUI) {
+  Reset();
+
+  _membrane_cb = NULL;
+  _switch_cb = NULL;
+  _toggle_cb = NULL;
+
+  _custom_overlay = NULL;
+  _custom_overlay_count = 0;
+
+  tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
+  tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
+
+  //
+}
+
+void Adafruit_IntelliKeys::Reset(void) {
   _daddr = 0;
   _opened = false;
 
@@ -151,17 +171,7 @@ Adafruit_IntelliKeys::Adafruit_IntelliKeys(void) {
   m_firmwareVersionMinor = 0;
 
   m_lastSwitch = 0;
-
-  _membrane_cb = NULL;
-  _switch_cb = NULL;
-
-  tu_fifo_config(&_cmd_ff, _cmd_ff_buf, IK_CMD_FIFO_SIZE, 8, false);
-  tu_fifo_config_mutex(&_cmd_ff, osal_mutex_create(&_cmd_ff_mutex), NULL);
-
-  //
 }
-
-void Adafruit_IntelliKeys::Reset(void) {}
 
 void Adafruit_IntelliKeys::begin(void) { IKOverlay::initStandardOverlays(); }
 
@@ -199,15 +209,8 @@ bool Adafruit_IntelliKeys::mount(uint8_t daddr) {
 
 void Adafruit_IntelliKeys::umount(uint8_t daddr) {
   if (daddr == _daddr) {
-    _daddr = 0;
+    Reset();
   }
-}
-
-void Adafruit_IntelliKeys::onMemBraneChanged(membrane_callback_t func) {
-  _membrane_cb = func;
-}
-void Adafruit_IntelliKeys::onSwitchChanged(switch_callback_t func) {
-  _switch_cb = func;
 }
 
 void Adafruit_IntelliKeys::Periodic(void) {
@@ -222,7 +225,7 @@ void Adafruit_IntelliKeys::Periodic(void) {
 
   //  setLEDs
   if (now > m_lastLEDTime + 100) {
-    // SetLEDs();
+    SetLEDs();
     m_lastLEDTime = now;
   }
 
@@ -249,6 +252,106 @@ void Adafruit_IntelliKeys::Periodic(void) {
   // InterpretRaw();
 }
 
+static bool checkNewKeyboardReport(hid_keyboard_report_t const *report,
+                                   ik_report_keyboard_t *ik_keyboard) {
+  if (ik_keyboard->modifier != 0 &&
+      !(report->modifier & ik_keyboard->modifier)) {
+    return true;
+  }
+
+  for (uint8_t i = 0; i < 6; i++) {
+    if (ik_keyboard->keycode == report->keycode[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void combineMouseReport(hid_mouse_report_t *report,
+                               ik_report_mouse_t *ik_mouse) {
+  report->buttons |= ik_mouse->buttons;
+  report->x += ik_mouse->x;
+  report->y += ik_mouse->y;
+}
+
+void Adafruit_IntelliKeys::getHIDReport(hid_keyboard_report_t *kb_report,
+                                        hid_mouse_report_t *mouse_report) {
+  memset(kb_report, 0, sizeof(hid_keyboard_report_t));
+  memset(mouse_report, 0, sizeof(hid_mouse_report_t));
+
+  if (!IsOpen() || !IsSwitchedOn()) {
+    return;
+  }
+
+  IKOverlay *overlay = GetCurrentOverlay();
+  if (overlay == NULL) {
+    return;
+  }
+
+  uint8_t kb_count = 0;
+
+  //------------- scan membrane -------------//
+  for (uint8_t i = 0; i < IK_RESOLUTION_X; i++) {
+    for (uint8_t j = 0; j < IK_RESOLUTION_Y; j++) {
+      if (m_membrane[i][j] == 1) {
+        ik_report_t ik_report;
+        overlay->getMembraneReport(i, j, &ik_report);
+
+        if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
+          // Serial.printf(
+          //    "rol = %u, col = %u, modifier = %02X, keycode = %02X\r\n", i, j,
+          //    ik_report.keyboard.modifier, ik_report.keyboard.keycode);
+          if (checkNewKeyboardReport(kb_report, &ik_report.keyboard)) {
+            kb_report->modifier |= ik_report.keyboard.modifier;
+            if (ik_report.keyboard.keycode != 0) {
+              kb_report->keycode[kb_count] = ik_report.keyboard.keycode;
+              kb_count++;
+              if (kb_count >= 6) {
+                break;
+              }
+            }
+          }
+        } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
+          //          Serial.printf(
+          //              "rol = %u, col = %u, buttons = %02X, x = %d, y =
+          //              %d\r\n", i, j, ik_report.mouse.buttons,
+          //              ik_report.mouse.x, ik_report.mouse.y);
+          combineMouseReport(mouse_report, &ik_report.mouse);
+        }
+      }
+    }
+  }
+
+  // Check for modifier latching
+  if (m_modShift.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTSHIFT;
+  }
+
+  if (m_modAlt.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTALT;
+  }
+
+  if (m_modControl.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTCTRL;
+  }
+
+  if (m_modCommand.GetState() != kModifierStateOff) {
+    kb_report->modifier |= KEYBOARD_MODIFIER_LEFTGUI;
+  }
+
+  if (kb_count) {
+    PostLiftAllModifiers();
+  }
+
+  if (!(mouse_report->buttons & MOUSE_BUTTON_LEFT) &&
+      (m_mouseDown.GetState() != kModifierStateOff)) {
+    mouse_report->buttons |= MOUSE_BUTTON_LEFT;
+  }
+
+  // TODO scan switch
+}
+
 void Adafruit_IntelliKeys::InterpretRaw() {
   //  don't bother if we're not connected and switched on
   if (!IsOpen()) {
@@ -258,17 +361,49 @@ void Adafruit_IntelliKeys::InterpretRaw() {
     return;
   }
 
+  IKOverlay *overlay = GetCurrentOverlay();
+
   //  look for _membrane change
   for (uint8_t col = 0; col < IK_RESOLUTION_X; col++) {
     for (uint8_t row = 0; row < IK_RESOLUTION_Y; row++) {
-      if (m_membrane[row][col] != m_last_membrane[row][col]) {
-        IK_PRINTF("Membrane [%02u, %02u] = %u\r\n", row, col,
-                  m_membrane[row][col]);
-        if (_membrane_cb) {
-          _membrane_cb(row, col, m_membrane[row][col]);
+      const uint8_t state = m_membrane[row][col];
+      if (state != m_last_membrane[row][col]) {
+        IK_PRINTF("membrane [%02u, %02u] = %u\r\n", row, col, state);
+
+        if (state) {
+          ShortKeySound();
+
+          // Modifier Latching
+          if (overlay) {
+            ik_report_t ik_report;
+            overlay->getMembraneReport(row, col, &ik_report);
+
+            if (ik_report.type == IK_REPORT_TYPE_KEYBOARD) {
+              uint8_t const modifier = ik_report.keyboard.modifier;
+
+              m_modControl.UpdateState(modifier);
+              m_modShift.UpdateState(modifier);
+              m_modAlt.UpdateState(modifier);
+              m_modCommand.UpdateState(modifier);
+            } else if (ik_report.type == IK_REPORT_TYPE_MOUSE) {
+              if (ik_report.mouse.buttons & IK_REPORT_MOUSE_CLICK_HOLD) {
+                m_mouseDown.ToggleState();
+              }
+
+              if (ik_report.mouse.buttons &
+                  (MOUSE_BUTTON_LEFT | IK_REPORT_MOUSE_DOUBLE_CLICK)) {
+                m_mouseDown.SetState(kModifierStateOff);
+              }
+            }
+          }
         }
+
         // save current state for next time
-        m_last_membrane[row][col] = m_membrane[row][col];
+        m_last_membrane[row][col] = state;
+
+        if (_membrane_cb) {
+          _membrane_cb(row, col, state);
+        }
       }
     }
   }
@@ -276,12 +411,17 @@ void Adafruit_IntelliKeys::InterpretRaw() {
   //  look for switch change
   for (uint8_t nsw = 0; nsw < IK_NUM_SWITCHES; nsw++) {
     if (m_switches[nsw] != m_last_switches[nsw]) {
-      IK_PRINTF("Switch %02u = %u\r\n", nsw, m_switches[nsw]);
+      IK_PRINTF("switch %02u = %u\r\n", nsw, m_switches[nsw]);
+      if (m_switches[nsw]) {
+        ShortKeySound();
+      }
+
+      // save current state for next time
+      m_last_switches[nsw] = m_switches[nsw];
+
       if (_switch_cb) {
         _switch_cb(nsw, m_switches[nsw]);
       }
-      // save current state for next time
-      m_last_switches[nsw] = m_switches[nsw];
     }
   }
 }
@@ -334,8 +474,7 @@ bool Adafruit_IntelliKeys::IsCapsLockOn(void) {
 }
 
 bool Adafruit_IntelliKeys::IsMouseDown(void) {
-  // implement later
-  return false;
+  return m_mouseDown.GetState() != 0;
 }
 
 void Adafruit_IntelliKeys::DoCorrect(void) {
@@ -604,6 +743,10 @@ void Adafruit_IntelliKeys::OnToggle(int newValue) {
     ResetMouse();
 
     // IKControlPanel::Refresh();
+
+    if (_toggle_cb) {
+      _toggle_cb((uint8_t)m_toggle);
+    }
   }
 }
 
@@ -738,10 +881,11 @@ void Adafruit_IntelliKeys::ProcessInput(uint8_t const *data, uint8_t len) {
 }
 
 void Adafruit_IntelliKeys::PostLiftAllModifiers() {
-  //  send the command
-  uint8_t report[IK_REPORT_LEN] = {
-      IK_CMD_LIFTALLMODIFIERS, 0, 0, 0, 0, 0, 0, 0};
-  PostCommand(report);
+  // run IK_CMD_LIFTALLMODIFIERS right here instead of using PostCommand
+  m_modShift.SetState(kModifierStateOff);
+  m_modAlt.SetState(kModifierStateOff);
+  m_modControl.SetState(kModifierStateOff);
+  m_modCommand.SetState(kModifierStateOff);
 }
 
 void Adafruit_IntelliKeys::PostCPRefresh() {
@@ -757,6 +901,7 @@ void Adafruit_IntelliKeys::ResetKeyboard(void) {
 
 void Adafruit_IntelliKeys::ResetMouse(void) {
   //  reset mouse
+  m_mouseDown.SetState(kModifierStateOff);
 }
 
 void Adafruit_IntelliKeys::OnStdOverlayChange() {
@@ -802,15 +947,20 @@ void Adafruit_IntelliKeys::OnStdOverlayChange() {
 }
 
 bool Adafruit_IntelliKeys::HasStandardOverlay() {
-  if (GetDevType() != 1) {
-    return false; //  only IK has standard overlays
-  }
-
-  return (m_currentOverlay != 7 && m_currentOverlay != -1);
+  // 0-6 is standard overlay, 7 is no overlay
+  return (0 <= m_currentOverlay && m_currentOverlay < 7);
 }
 
 IKOverlay *Adafruit_IntelliKeys::GetCurrentOverlay() {
-  return &stdOverlays[m_currentOverlay];
+  if (HasStandardOverlay()) {
+    return &stdOverlays[m_currentOverlay];
+  } else if ((m_currentOverlay > 7) &&
+             (m_currentOverlay - 8 < _custom_overlay_count) &&
+             (_custom_overlay != NULL)) {
+    return &_custom_overlay[m_currentOverlay - 8];
+  } else {
+    return NULL;
+  }
 }
 
 void Adafruit_IntelliKeys::OverlayRecognitionFeedback() {

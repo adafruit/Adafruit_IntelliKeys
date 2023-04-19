@@ -43,6 +43,7 @@ class Adafruit_IntelliKeys {
 public:
   typedef void (*membrane_callback_t)(uint8_t row, uint8_t col, uint8_t state);
   typedef void (*switch_callback_t)(uint8_t sw, uint8_t state);
+  typedef void (*toggle_callback_t)(uint8_t state);
 
   Adafruit_IntelliKeys(void);
 
@@ -54,10 +55,18 @@ public:
   bool mount(uint8_t daddr);
   void umount(uint8_t daddr);
 
+  void setCustomOverlay(IKOverlay *overlay, uint32_t count) {
+    _custom_overlay = overlay;
+    _custom_overlay_count = count;
+  }
+
+  void getHIDReport(hid_keyboard_report_t *kb_report,
+                    hid_mouse_report_t *mouse_report);
   void Periodic(void);
 
-  void onMemBraneChanged(membrane_callback_t func);
-  void onSwitchChanged(switch_callback_t func);
+  void onMemBraneChanged(membrane_callback_t func) { _membrane_cb = func; }
+  void onSwitchChanged(switch_callback_t func) { _switch_cb = func; }
+  void onToggleChanged(toggle_callback_t func) { _toggle_cb = func; }
 
   uint8_t const (*getMembrane(void))[IK_RESOLUTION_Y] { return m_membrane; }
 
@@ -65,6 +74,7 @@ public:
   // Function named following IKDevice in OpenIKeys
   //--------------------------------------------------------------------+
 
+  bool isAttached(void) { return _daddr != 0; }
   bool IsOpen(void) { return _opened; }
   bool IsSwitchedOn(void) { return m_toggle == 1; }
   bool IsNumLockOn(void);
@@ -122,6 +132,15 @@ private:
   uint8_t _daddr;
   uint8_t _opened;
 
+  membrane_callback_t _membrane_cb;
+  switch_callback_t _switch_cb;
+  toggle_callback_t _toggle_cb;
+
+  IKOverlay *_custom_overlay;
+  uint32_t _custom_overlay_count;
+
+  //------------- From OpenIKeys -------------//
+
   int m_currentLevel;
   int m_newLevel;
 
@@ -166,12 +185,11 @@ private:
   IKModifier m_modControl;
   IKModifier m_modCommand;
 
+  IKModifier m_mouseDown;
+
   tu_fifo_t _cmd_ff;
   OSAL_MUTEX_DEF(_cmd_ff_mutex);
   uint8_t _cmd_ff_buf[8 * IK_CMD_FIFO_SIZE];
-
-  membrane_callback_t _membrane_cb;
-  switch_callback_t _switch_cb;
 
   bool Start(void);
   void Reset(void);

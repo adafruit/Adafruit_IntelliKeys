@@ -4,55 +4,36 @@
  * Copyright (c) 2023 Ha Thach (thach@tinyusb.org) for Adafruit Industries
  */
 
-#include "IKModifier.h"
+#include "Arduino.h"
+
 #include "Adafruit_IntelliKeys.h"
+#include "IKModifier.h"
 
-void IKModifier::SetState(int state) {
-  IKSettings *pSettings = IKSettings::GetSettings();
-  if (pSettings == NULL)
-    return;
+#define IK_MODIFIER_CHANGE_DELAY 5
 
-  int theCode = m_universalCode;
-  if (m_universalCodeOverride != 0)
-    theCode = m_universalCodeOverride;
-
-  switch (pSettings->m_iShiftKeyAction) {
-  case kSettingsShiftLatching:
-    if (state == kModifierStateOff) {
-      if (m_state == kModifierStateLatched)
-        m_device->PostKey(theCode, IK_UP);
-    } else if (state == kModifierStateLatched) {
-      if (m_state == kModifierStateOff)
-        m_device->PostKey(theCode, IK_DOWN);
-    }
-    break;
-
-  case kSettingsShiftLocking:
-    if (state == kModifierStateOff) {
-      if (m_state != kModifierStateOff)
-        m_device->PostKey(theCode, IK_UP);
-    } else if (state == kModifierStateLatched) {
-      if (m_state == kModifierStateOff)
-        m_device->PostKey(theCode, IK_DOWN);
-    } else if (state == kModifierStateLocked) {
-      if (m_state == kModifierStateOff)
-        m_device->PostKey(theCode, IK_DOWN);
-    }
-    break;
-
-  case kSettingsShiftNoLatch:
-    if (state == kModifierStateOff) {
-      if (m_state != kModifierStateOff)
-        m_device->PostKey(theCode, IK_UP);
-    }
-    break;
-
-  default:
-    break;
+void IKModifier::ToggleState() {
+  // skip if it is changed in the last 5ms
+  if (millis() - m_lastTime > IK_MODIFIER_CHANGE_DELAY) {
+    m_lastTime = millis();
+    m_state = (m_state == kModifierStateOff) ? kModifierStateLatched
+                                             : kModifierStateOff;
   }
-
-  m_state = state;
 }
+
+void IKModifier::UpdateState(uint8_t mask) {
+  // skip if it is changed in the last 5ms
+  if (millis() - m_lastTime > IK_MODIFIER_CHANGE_DELAY) {
+    m_lastTime = millis();
+
+    if (mask & m_mask) {
+      // toggle if it is our mask
+      m_state = (m_state == kModifierStateOff) ? kModifierStateLatched
+                                               : kModifierStateOff;
+    }
+  }
+}
+
+void IKModifier::SetState(int state) { m_state = state; }
 
 void IKModifier::Execute(int code) {
   int theCode = m_universalCode;

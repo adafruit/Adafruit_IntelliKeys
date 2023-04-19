@@ -99,10 +99,11 @@ private:
   static void initStdWebAccess(void);
   static void initStdMathAccess(void);
   static void initStdAlphabet(void);
+  static void initStdMouseAccess(void);
   static void initStdQwerty(void);
   static void initStdBasicWriting(void);
 
-  static void initStdQwertyRow3to8(IKOverlay &overlay);
+  static void initStdQwertyRow3to8(IKOverlay &overlay, bool is_web);
 
   // init row QWERTY
   void initQwertyRow(int row, int col, int height, int width);
