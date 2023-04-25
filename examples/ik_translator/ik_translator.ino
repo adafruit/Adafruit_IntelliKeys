@@ -35,19 +35,6 @@
 
 #include "Adafruit_IntelliKeys.h"
 
-// use rp2040 tester board
-// #define USE_RP2040_TESTER
-
-#ifdef USE_RP2040_TESTER
-
-#define PIN_USB_HOST_DP 20
-#define PIN_5V_EN 22
-#define PIN_NEOPIXEL 13
-#define NEOPIXEL_POWER 28
-#define PIN_5V_EN_STATE 1
-
-#else
-
 // Pin D+ for host, D- = D+ + 1
 #ifndef PIN_USB_HOST_DP
 #define PIN_USB_HOST_DP 16 // 20
@@ -68,8 +55,6 @@
 
 #ifndef NEOPIXEL_POWER
 #define NEOPIXEL_POWER 20
-#endif
-
 #endif
 
 #define SCAN_INTERVAL 8
