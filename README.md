@@ -35,7 +35,7 @@ TODO (not supported yet):
 
 ### Compiling from source
 
-- Instal [arduino-pico](https://github.com/earlephilhower/arduino-pico)
+- Install [arduino-pico](https://github.com/earlephilhower/arduino-pico)
 - Open examples/ik_translater, from IDE menu then select following option
 
   ```
