@@ -31,7 +31,21 @@ TODO (not supported yet):
 - Support setup overlays for behavior settings (volume, repeat rate, mouse speed). Maybe stores settings in text file (exposed by MSC)
 - Custom overlays in text file in MSC
 
-## Installation
+## Build and Flash
+
+### Compiling from source
+
+- Instal [arduino-pico](https://github.com/earlephilhower/arduino-pico)
+- Open examples/ik_translater, from IDE menu then select following option
+
+  ```
+  Board: Adafruit Feather RP2040 USB Host
+  CPU Speed: 120 MHz
+  USB Stack: Adafruit TinyUSB
+  ```
+- Compile and upload
+
+### Using pre-built UF2
 
 - Put board to DFU mode by pressing BOOTSEL button and then reset button
 - Download UF2 from release page and copy to the board
