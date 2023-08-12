@@ -794,10 +794,10 @@ void IKOverlay::initStdAlphabet(void) {
   col = 0;
 
   ik_report_keyboard_t const sixth_row[] = {{KEYBOARD_MODIFIER_LEFTSHIFT, 0},
-                                            {0, HID_KEY_W},
-                                            {0, HID_KEY_X},
-                                            {0, HID_KEY_Y},
-                                            {0, HID_KEY_Z},
+                                            {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_W},
+                                            {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_X},
+                                            {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_Y},
+                                            {KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEY_Z},
                                             {KEYBOARD_MODIFIER_LEFTSHIFT, 0}};
 
   overlay.setMembraneKeyboardArr(row, col, height, width, sixth_row,
