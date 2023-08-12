@@ -755,6 +755,9 @@ void IKOverlay::initStdAlphabet(void) {
   report.keyboard.modifier = KEYBOARD_MODIFIER_LEFTSHIFT;
   overlay.setMembraneReport(row, col, height, width, &report);
 
+  // Make sure all the alphabet is lowercase starting from here
+  report.keyboard.modifier = 0;
+
   //----------------- Third Row -------------//
   row = 8;
   col = 0;
