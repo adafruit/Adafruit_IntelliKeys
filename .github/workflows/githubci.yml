@@ -75,7 +75,7 @@ jobs:
         tree examples/ik_translator
         cp examples/ik_translator/build/*/ik_translator.ino.uf2 ik_translator-${{ matrix.board }}.uf2
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ik_translator-${{ matrix.board }}
         path: ik_translator-${{ matrix.board }}.uf2
